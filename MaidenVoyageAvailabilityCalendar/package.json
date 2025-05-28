@@ -1,0 +1,26 @@
+{
+  "name": "maidenvoyageavailabilitycalendar",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && gh-pages -d dist",
+    "health": "echo '\n🏥 Health Check Instructions:\n1. Open the app in your browser\n2. Open browser console (F12)\n3. Copy and paste the contents of health-check.js\n4. Press Enter to run the health check\n\nOr run: npm run demo'"
+  },
+  "dependencies": {
+    "@mdi/font": "^7.4.47",
+    "@popperjs/core": "^2.11.8",
+    "@supabase/supabase-js": "^2.49.8",
+    "v-calendar": "^3.1.2",
+    "vue": "^3.5.13",
+    "vuetify": "^3.8.7"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.3",
+    "gh-pages": "^6.3.0",
+    "vite": "^6.3.5"
+  }
+}
