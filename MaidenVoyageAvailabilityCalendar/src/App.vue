@@ -8,7 +8,7 @@
             <v-card class="flex-grow-1">
               <div class="d-flex justify-center pa-3">
                 <v-img
-                  src="/MaidenVoyageLogo.png"
+                  :src="logoUrl"
                   alt="Maiden Voyage Logo"
                   max-width="250"
                   max-height="160"
@@ -219,6 +219,9 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 
 // Import DatabaseService normally and handle errors at runtime
 import { DatabaseService } from "./lib/database.js";
+
+// Import logo asset
+import logoUrl from "./assets/MaidenVoyageLogo.png";
 
 const users = ref([
   { name: "Jessica", color: "blue", availableDates: [] },
