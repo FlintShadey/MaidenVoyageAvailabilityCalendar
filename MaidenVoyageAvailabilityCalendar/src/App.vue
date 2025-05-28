@@ -68,8 +68,10 @@
                     :key="calendarKey"
                     :min-date="new Date(2025, 4, 1)"
                     :max-date="new Date(2025, 6, 31)"
+                    :from-page="currentCalendarPage"
                     :attributes="safeCalendarAttributes"
                     @dayclick="onDayClick"
+                    @update:from-page="onPageChange"
                     expanded
                     is-dark
                     view="monthly"
@@ -248,6 +250,7 @@ const demoMode = ref(false);
 const calendarError = ref(false);
 const calendarReady = ref(false);
 const calendarKey = ref(0); // Force re-render when needed
+const currentCalendarPage = ref({ month: 7, year: 2025 }); // Start with July 2025
 
 // Browser compatibility detection
 const userAgent =
@@ -526,6 +529,18 @@ const calendarAttributes = computed(() => {
     return [];
   }
 });
+
+// Handle calendar page changes to maintain navigation state
+const onPageChange = (page) => {
+  try {
+    if (page && page.month !== undefined && page.year !== undefined) {
+      currentCalendarPage.value = { month: page.month, year: page.year };
+      console.log(`📅 Calendar page changed to: ${page.month}/${page.year}`);
+    }
+  } catch (error) {
+    console.error("Error in onPageChange:", error);
+  }
+};
 
 const onDayClick = async (day) => {
   try {
