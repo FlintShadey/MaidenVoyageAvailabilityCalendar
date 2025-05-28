@@ -8,7 +8,7 @@
             <v-card class="flex-grow-1">
               <div class="d-flex justify-center pa-3">
                 <v-img
-                  :src="'/src/assets/MaidenVoyageLogo.png'"
+                  src="/MaidenVoyageLogo.png"
                   alt="Maiden Voyage Logo"
                   max-width="250"
                   max-height="160"
