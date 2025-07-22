@@ -51,10 +51,11 @@
           <v-col cols="12" sm="8" md="9" lg="10" xl="10" class="d-flex">
             <v-card class="flex-grow-1">
               <v-card-title>Select Availability</v-card-title>
-              <v-card-text class="pa-2 d-flex flex-column fill-height">
+              <v-card-text class="pa-2 d-flex flex-column">
                 <div
                   v-if="isLoading"
-                  class="d-flex align-center justify-center fill-height"
+                  class="d-flex align-center justify-center"
+                  style="min-height: 400px"
                 >
                   <v-progress-circular
                     indeterminate
@@ -98,7 +99,9 @@
                     <p class="mt-2">Preparing calendar...</p>
                   </div>
                 </div>
-                <div class="ma-4" style="align-self: flex-end; flex-shrink: 0">
+                
+                <!-- Submit Button - positioned right after calendar -->
+                <div class="d-flex justify-center mt-4 mb-2">
                   <v-btn
                     @click="submitToDatabase"
                     :disabled="!hasSelectedDates || isSubmitting"
@@ -106,6 +109,7 @@
                     :color="hasPendingChanges ? 'warning' : 'primary'"
                     :variant="hasPendingChanges ? 'elevated' : 'outlined'"
                     prepend-icon="mdi-database-plus"
+                    size="large"
                   >
                     {{ hasPendingChanges ? 'Save Changes' : 'Submit to Database' }}
                     <v-chip 
