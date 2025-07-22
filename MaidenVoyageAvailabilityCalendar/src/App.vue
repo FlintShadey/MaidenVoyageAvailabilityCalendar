@@ -103,9 +103,20 @@
                     @click="submitToDatabase"
                     :disabled="!hasSelectedDates || isSubmitting"
                     :loading="isSubmitting"
+                    :color="hasPendingChanges ? 'warning' : 'primary'"
+                    :variant="hasPendingChanges ? 'elevated' : 'outlined'"
                     prepend-icon="mdi-database-plus"
                   >
-                    Submit to Database
+                    {{ hasPendingChanges ? 'Save Changes' : 'Submit to Database' }}
+                    <v-chip 
+                      v-if="hasPendingChanges" 
+                      color="white" 
+                      variant="elevated" 
+                      size="x-small" 
+                      class="ml-2"
+                    >
+                      Pending
+                    </v-chip>
                   </v-btn>
                 </div>
               </v-card-text>
@@ -245,6 +256,7 @@ const forceCommonDatesUpdate = () => {
 };
 const isLoading = ref(true);
 const isSubmitting = ref(false);
+const hasPendingChanges = ref(false);
 const subscription = ref(null);
 const demoMode = ref(false);
 const calendarError = ref(false);
@@ -333,6 +345,8 @@ watch(
   () => {
     // Force calendar re-render when user changes to prevent stale state
     calendarKey.value += 1;
+    // Clear pending changes when switching users
+    hasPendingChanges.value = false;
   },
   { immediate: false }
 );
@@ -397,6 +411,9 @@ const loadAllUserAvailability = async () => {
 
     // Update users in a single operation to minimize reactive updates
     users.value = updatedUsers;
+
+    // Clear pending changes since we're loading fresh data from database
+    hasPendingChanges.value = false;
 
     // Force common dates to update after loading data
     forceCommonDatesUpdate();
@@ -560,54 +577,22 @@ const onDayClick = async (day) => {
       (d) => d instanceof Date && d.getTime() === clickedDate.getTime()
     );
 
-    // Update UI immediately (optimistic update)
+    // Update UI immediately (local change only)
     if (dateIndex > -1) {
       // Remove the date if it's already selected
       user.availableDates.splice(dateIndex, 1);
+      console.log(`🗓️ Removed ${clickedDate.toDateString()} for ${selectedUser.value} (pending submit)`);
     } else {
       // Add the date if it's not selected
       user.availableDates.push(new Date(clickedDate));
+      console.log(`🗓️ Added ${clickedDate.toDateString()} for ${selectedUser.value} (pending submit)`);
     }
 
     // Force common dates to update (cross-browser compatibility)
     forceCommonDatesUpdate();
-
-    // Try to save to database if Supabase is configured
-    if (DatabaseService.isAvailable() && !demoMode.value) {
-      try {
-        if (dateIndex > -1) {
-          await DatabaseService.removeUserDate(
-            selectedUser.value,
-            clickedDate.toISOString().split("T")[0]
-          );
-        } else {
-          await DatabaseService.addUserDate(
-            selectedUser.value,
-            clickedDate.toISOString().split("T")[0]
-          );
-        }
-      } catch (error) {
-        console.error("Failed to update date:", error);
-        // Revert the UI change if database update failed
-        if (dateIndex > -1) {
-          user.availableDates.push(new Date(clickedDate)); // Re-add if removal failed
-        } else {
-          const revertIndex = user.availableDates.findIndex(
-            (d) => d instanceof Date && d.getTime() === clickedDate.getTime()
-          );
-          if (revertIndex > -1) {
-            user.availableDates.splice(revertIndex, 1); // Remove if addition failed
-          }
-        }
-        alert("Failed to update availability. Please try again.");
-      }
-    } else if (demoMode.value) {
-      console.log(
-        `🎭 Demo mode: ${
-          dateIndex > -1 ? "Removed" : "Added"
-        } ${clickedDate.toDateString()} for ${selectedUser.value}`
-      );
-    }
+    
+    // Mark that user has pending changes
+    hasPendingChanges.value = true;
   } catch (error) {
     console.error("Error in onDayClick:", error);
     calendarError.value = true;
@@ -876,6 +861,9 @@ const submitToDatabase = async () => {
       alert(
         `🎭 Demo mode: Would submit ${user.name}'s availability for ${dateStrings.length} dates. Check console for details.`
       );
+      
+      // Clear pending changes flag in demo mode too
+      hasPendingChanges.value = false;
       return;
     }
 
@@ -899,6 +887,9 @@ const submitToDatabase = async () => {
       dates: dateStrings,
       totalDates: dateStrings.length,
     });
+
+    // Clear pending changes flag on successful submission
+    hasPendingChanges.value = false;
 
     alert(
       `Successfully submitted ${user.name}'s availability for ${dateStrings.length} dates.`
@@ -926,6 +917,7 @@ const resetCalendar = async () => {
     calendarError.value = false;
     calendarReady.value = false;
     isLoading.value = true;
+    hasPendingChanges.value = false; // Clear pending changes on reset
 
     // Force calendar re-render
     calendarKey.value += 1;
