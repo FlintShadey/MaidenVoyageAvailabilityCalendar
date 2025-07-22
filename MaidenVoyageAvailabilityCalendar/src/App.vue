@@ -66,8 +66,8 @@
                   <VCalendar
                     v-if="!calendarError && calendarReady"
                     :key="calendarKey"
-                    :min-date="new Date(2025, 4, 1)"
-                    :max-date="new Date(2025, 6, 31)"
+                    :min-date="new Date(2025, 7, 1)"
+                    :max-date="new Date(2025, 9, 31)"
                     :from-page="currentCalendarPage"
                     :attributes="safeCalendarAttributes"
                     @dayclick="onDayClick"
@@ -226,10 +226,10 @@ import { DatabaseService } from "./lib/database.js";
 import logoUrl from "./assets/TriptoFredericksberg.png";
 
 const users = ref([
-  { name: "Jessica", color: "blue", availableDates: [] },
-  { name: "Flint", color: "green", availableDates: [] },
-  { name: "Josh & Karen", color: "orange", availableDates: [] },
-  { name: "Jeff & Mafalda", color: "purple", availableDates: [] },
+  { name: "Flint", color: "blue", availableDates: [] },
+  { name: "Yanni", color: "green", availableDates: [] },
+  { name: "Mike", color: "orange", availableDates: [] },
+  { name: "Zack", color: "purple", availableDates: [] },
 ]);
 
 const selectedUser = ref(users.value[0].name);
@@ -250,7 +250,7 @@ const demoMode = ref(false);
 const calendarError = ref(false);
 const calendarReady = ref(false);
 const calendarKey = ref(0); // Force re-render when needed
-const currentCalendarPage = ref({ month: 7, year: 2025 }); // Start with July 2025
+const currentCalendarPage = ref({ month: 8, year: 2025 }); // Start with August 2025
 
 // Browser compatibility detection
 const userAgent =
@@ -975,14 +975,14 @@ const runBrowserTest = () => {
   const testData = [
     {
       name: "Test1",
-      availableDates: [new Date("2025-05-15"), new Date("2025-05-20")],
+      availableDates: [new Date("2025-08-15"), new Date("2025-08-20")],
     },
     {
       name: "Test2",
-      availableDates: [new Date("2025-05-15"), new Date("2025-05-25")],
+      availableDates: [new Date("2025-08-15"), new Date("2025-08-25")],
     },
-    { name: "Test3", availableDates: [new Date("2025-05-15")] },
-    { name: "Test4", availableDates: [new Date("2025-05-15")] },
+    { name: "Test3", availableDates: [new Date("2025-08-15")] },
+    { name: "Test4", availableDates: [new Date("2025-08-15")] },
   ];
 
   const testResult = computeCommonDatesSafe(testData, Date.now());
@@ -1012,16 +1012,16 @@ const addTestData = () => {
 
   // Add some test dates to all users
   const testDates = [
-    new Date("2025-05-15"),
-    new Date("2025-06-01"),
-    new Date("2025-06-15"),
+    new Date("2025-08-15"),
+    new Date("2025-09-01"),
+    new Date("2025-09-15"),
   ];
 
   users.value.forEach((user, index) => {
     user.availableDates = [...testDates];
     // Add some unique dates for variety
-    if (index === 0) user.availableDates.push(new Date("2025-05-20"));
-    if (index === 1) user.availableDates.push(new Date("2025-05-25"));
+    if (index === 0) user.availableDates.push(new Date("2025-08-20"));
+    if (index === 1) user.availableDates.push(new Date("2025-08-25"));
   });
 
   forceCommonDatesUpdate();
@@ -1029,7 +1029,7 @@ const addTestData = () => {
   const commonCount = commonAvailableDates.value.length;
   console.log("✅ Test data added, common dates:", commonCount);
   alert(
-    `📊 Test data added!\n\nAll users now have ${testDates.length} common dates.\nComputed common dates: ${commonCount}\n\nExpected: 3 common dates (May 15, June 1, June 15)`
+    `📊 Test data added!\n\nAll users now have ${testDates.length} common dates.\nComputed common dates: ${commonCount}\n\nExpected: 3 common dates (Aug 15, Sep 1, Sep 15)`
   );
 };
 

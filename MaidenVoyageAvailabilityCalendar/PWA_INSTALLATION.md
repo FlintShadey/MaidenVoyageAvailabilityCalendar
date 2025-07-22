@@ -1,4 +1,5 @@
 # PWA Installation Guide
+
 ## Trip to Fredericksberg Calendar
 
 This application is now a **Progressive Web App (PWA)** that can be installed on your device like a native app! 🎉
