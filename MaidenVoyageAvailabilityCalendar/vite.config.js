@@ -20,8 +20,8 @@ export default defineConfig({
         theme_color: "#1976D2",
         background_color: "#1976D2",
         display: "standalone",
-        scope: "./",
-        start_url: "./",
+        scope: "/MaidenVoyageAvailabilityCalendar/",
+        start_url: "/MaidenVoyageAvailabilityCalendar/",
         orientation: "portrait-primary",
         categories: ["productivity", "travel", "utilities"],
         icons: [
@@ -29,67 +29,67 @@ export default defineConfig({
             src: "icons/icon-72x72.png",
             sizes: "72x72",
             type: "image/png",
-            purpose: "any"
+            purpose: "any",
           },
           {
             src: "icons/icon-96x96.png",
             sizes: "96x96",
             type: "image/png",
-            purpose: "any"
+            purpose: "any",
           },
           {
             src: "icons/icon-128x128.png",
             sizes: "128x128",
             type: "image/png",
-            purpose: "any"
+            purpose: "any",
           },
           {
             src: "icons/icon-144x144.png",
             sizes: "144x144",
             type: "image/png",
-            purpose: "any"
+            purpose: "any",
           },
           {
             src: "icons/icon-152x152.png",
             sizes: "152x152",
             type: "image/png",
-            purpose: "any"
+            purpose: "any",
           },
           {
             src: "icons/icon-192x192.png",
             sizes: "192x192",
             type: "image/png",
-            purpose: "any"
+            purpose: "any",
           },
           {
             src: "icons/icon-384x384.png",
             sizes: "384x384",
             type: "image/png",
-            purpose: "any"
+            purpose: "any",
           },
           {
             src: "icons/icon-512x512.png",
             sizes: "512x512",
             type: "image/png",
-            purpose: "any"
+            purpose: "any",
           },
           {
             src: "icons/icon-192x192.png",
             sizes: "192x192",
             type: "image/png",
-            purpose: "maskable"
+            purpose: "maskable",
           },
           {
             src: "icons/icon-512x512.png",
             sizes: "512x512",
             type: "image/png",
-            purpose: "maskable"
-          }
+            purpose: "maskable",
+          },
         ],
       },
     }),
   ],
-  base: "./", // Use relative paths for deployment flexibility
+  base: "/MaidenVoyageAvailabilityCalendar/", // GitHub Pages repository path
   build: {
     outDir: "dist",
     assetsDir: "assets",
