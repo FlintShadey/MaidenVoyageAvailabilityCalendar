@@ -9,7 +9,7 @@
               <div class="d-flex justify-center pa-3">
                 <v-img
                   :src="logoUrl"
-                  alt="Maiden Voyage Logo"
+                  alt="Trip to Fredericksberg Logo"
                   max-width="250"
                   max-height="160"
                   contain
@@ -223,7 +223,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { DatabaseService } from "./lib/database.js";
 
 // Import logo asset
-import logoUrl from "./assets/MaidenVoyageLogo.png";
+import logoUrl from "./assets/TriptoFredericksberg.png";
 
 const users = ref([
   { name: "Jessica", color: "blue", availableDates: [] },
