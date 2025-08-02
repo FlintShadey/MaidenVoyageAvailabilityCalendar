@@ -168,7 +168,8 @@
                   <strong>🔧 Debug Info:</strong><br />
                   Calendar Ready: {{ calendarReady }}<br />
                   Users Count: {{ users.length }}<br />
-                  Availability Dates Count: {{ userAvailabilityByDate.length }}<br />
+                  Availability Dates Count: {{ userAvailabilityByDate.length
+                  }}<br />
                   Update Trigger: {{ commonDatesUpdateTrigger }}<br />
                   Users with dates:
                   {{
@@ -208,7 +209,8 @@
                 >
                   <v-icon size="48" class="mb-2">mdi-calendar-question</v-icon>
                   <p>
-                    No dates with 2 or more users available yet. Select dates for multiple users to see shared availability!
+                    No dates with 2 or more users available yet. Select dates
+                    for multiple users to see shared availability!
                   </p>
                 </div>
                 <div v-else class="d-flex flex-column ga-3">
@@ -228,7 +230,10 @@
                       </v-chip>
                       <span class="text-body-1">
                         {{ formatUserNames(dateInfo.users) }}
-                        {{ dateInfo.users.length === 1 ? 'is' : 'are' }} available
+                        {{
+                          dateInfo.users.length === 1 ? "is" : "are"
+                        }}
+                        available
                       </span>
                       <div class="d-flex flex-wrap ga-1 ml-auto">
                         <v-chip
@@ -646,7 +651,9 @@ const computeUserAvailabilityByDate = (usersData, trigger) => {
   }
 
   try {
-    console.log("🔧 computeUserAvailabilityByDate: Building date availability map");
+    console.log(
+      "🔧 computeUserAvailabilityByDate: Building date availability map"
+    );
 
     const dateAvailabilityMap = new Map();
 
@@ -662,19 +669,19 @@ const computeUserAvailabilityByDate = (usersData, trigger) => {
           date.getFullYear() <= 2030
         ) {
           const dateKey = date.toISOString().split("T")[0];
-          
+
           if (!dateAvailabilityMap.has(dateKey)) {
             dateAvailabilityMap.set(dateKey, {
               date: new Date(date),
-              users: []
+              users: [],
             });
           }
-          
+
           const dateInfo = dateAvailabilityMap.get(dateKey);
-          if (!dateInfo.users.some(u => u.name === user.name)) {
+          if (!dateInfo.users.some((u) => u.name === user.name)) {
             dateInfo.users.push({
               name: user.name,
-              color: user.color
+              color: user.color,
             });
           }
         }
@@ -683,7 +690,7 @@ const computeUserAvailabilityByDate = (usersData, trigger) => {
 
     // Convert to array, filter to only dates with 2+ users, and sort by date
     const availabilityByDate = Array.from(dateAvailabilityMap.values())
-      .filter(dateInfo => dateInfo.users.length >= 2) // Only show dates with 2+ users
+      .filter((dateInfo) => dateInfo.users.length >= 2) // Only show dates with 2+ users
       .sort((a, b) => a.date.getTime() - b.date.getTime());
 
     console.log(
@@ -691,13 +698,10 @@ const computeUserAvailabilityByDate = (usersData, trigger) => {
       availabilityByDate.length,
       "dates with 2+ users available"
     );
-    
+
     return availabilityByDate;
   } catch (error) {
-    console.error(
-      "❌ computeUserAvailabilityByDate: Failed:",
-      error.message
-    );
+    console.error("❌ computeUserAvailabilityByDate: Failed:", error.message);
     return [];
   }
 };
@@ -734,8 +738,11 @@ const formatUserNames = (users) => {
   if (!users || users.length === 0) return "";
   if (users.length === 1) return users[0].name;
   if (users.length === 2) return `${users[0].name} and ${users[1].name}`;
-  
-  const allButLast = users.slice(0, -1).map(u => u.name).join(", ");
+
+  const allButLast = users
+    .slice(0, -1)
+    .map((u) => u.name)
+    .join(", ");
   const last = users[users.length - 1].name;
   return `${allButLast}, and ${last}`;
 };
@@ -897,15 +904,15 @@ const runBrowserTest = () => {
       color: "green",
       availableDates: [new Date("2025-08-15"), new Date("2025-08-25")],
     },
-    { 
-      name: "Test3", 
+    {
+      name: "Test3",
       color: "orange",
-      availableDates: [new Date("2025-08-15")] 
+      availableDates: [new Date("2025-08-15")],
     },
-    { 
-      name: "Test4", 
+    {
+      name: "Test4",
       color: "purple",
-      availableDates: [new Date("2025-08-15")] 
+      availableDates: [new Date("2025-08-15")],
     },
   ];
 
@@ -914,7 +921,7 @@ const runBrowserTest = () => {
     "✅ Direct computation test:",
     testResult.map((item) => ({
       date: item.date.toISOString().split("T")[0],
-      users: item.users.map(u => u.name)
+      users: item.users.map((u) => u.name),
     }))
   );
 
@@ -926,9 +933,11 @@ const runBrowserTest = () => {
         : testResults.browser.includes("Chrome")
         ? "Chrome"
         : "Other"
-    }\nAvailability Dates: ${testResults.availabilityDatesCount}\nUsers with Data: ${
-      testResults.usersWithData
-    }/${testResults.totalUsers}\nDirect Test Result: ${
+    }\nAvailability Dates: ${
+      testResults.availabilityDatesCount
+    }\nUsers with Data: ${testResults.usersWithData}/${
+      testResults.totalUsers
+    }\nDirect Test Result: ${
       testResult.length
     } dates with availability\n\nCheck console for detailed results.`
   );
@@ -1211,11 +1220,11 @@ window.addEventListener("error", (event) => {
   .v-container {
     padding: 8px !important;
   }
-  
+
   .availability-item {
     padding: 8px;
   }
-  
+
   .date-chip {
     min-width: 100px;
   }
