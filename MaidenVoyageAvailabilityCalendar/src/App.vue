@@ -99,7 +99,7 @@
                     <p class="mt-2">Preparing calendar...</p>
                   </div>
                 </div>
-                
+
                 <!-- Submit Button - positioned right after calendar -->
                 <div class="d-flex justify-center mt-4 mb-2">
                   <v-btn
@@ -111,12 +111,14 @@
                     prepend-icon="mdi-database-plus"
                     size="large"
                   >
-                    {{ hasPendingChanges ? 'Save Changes' : 'Submit to Database' }}
-                    <v-chip 
-                      v-if="hasPendingChanges" 
-                      color="white" 
-                      variant="elevated" 
-                      size="x-small" 
+                    {{
+                      hasPendingChanges ? "Save Changes" : "Submit to Database"
+                    }}
+                    <v-chip
+                      v-if="hasPendingChanges"
+                      color="white"
+                      variant="elevated"
+                      size="x-small"
                       class="ml-2"
                     >
                       Pending
@@ -137,14 +139,14 @@
                   class="d-flex align-center flex-grow-1 justify-center text-center"
                 >
                   <!-- Wrap span and chip for alignment -->
-                  <span class="text-center">Everyone is available on:</span>
+                  <span class="text-center">Shared Availability:</span>
                   <v-chip
                     color="info"
                     variant="outlined"
                     size="x-small"
                     class="ml-2"
                   >
-                    {{ commonAvailableDates.length }} dates
+                    {{ userAvailabilityByDate.length }} dates
                   </v-chip>
                 </div>
                 <!-- <v-spacer></v-spacer> REMOVED to allow centering of the div above -->
@@ -153,7 +155,7 @@
                   size="small"
                   variant="text"
                   @click="forceCommonDatesUpdate"
-                  title="Refresh common dates"
+                  title="Refresh availability"
                 >
                 </v-btn>
               </v-card-title>
@@ -166,7 +168,7 @@
                   <strong>🔧 Debug Info:</strong><br />
                   Calendar Ready: {{ calendarReady }}<br />
                   Users Count: {{ users.length }}<br />
-                  Common Dates Count: {{ commonAvailableDates.length }}<br />
+                  Availability Dates Count: {{ userAvailabilityByDate.length }}<br />
                   Update Trigger: {{ commonDatesUpdateTrigger }}<br />
                   Users with dates:
                   {{
@@ -201,26 +203,46 @@
                 </div>
 
                 <div
-                  v-if="commonAvailableDates.length === 0"
+                  v-if="userAvailabilityByDate.length === 0"
                   class="text-center text-medium-emphasis"
                 >
                   <v-icon size="48" class="mb-2">mdi-calendar-question</v-icon>
                   <p>
-                    No dates selected by all users yet. Start selecting dates
-                    above!
+                    No dates with 2 or more users available yet. Select dates for multiple users to see shared availability!
                   </p>
                 </div>
-                <div v-else class="d-flex flex-wrap ga-2 justify-center">
-                  <v-chip
-                    v-for="(date, index) in commonAvailableDates"
-                    :key="`common-date-${date.toISOString()}-${index}`"
-                    color="success"
-                    variant="elevated"
-                    size="large"
-                    class="ma-1 text-center d-flex justify-center align-center"
+                <div v-else class="d-flex flex-column ga-3">
+                  <div
+                    v-for="(dateInfo, index) in userAvailabilityByDate"
+                    :key="`availability-${dateInfo.date.toISOString()}-${index}`"
+                    class="availability-item"
                   >
-                    {{ formatDate(date) }}
-                  </v-chip>
+                    <div class="d-flex align-center ga-2 flex-wrap">
+                      <v-chip
+                        color="primary"
+                        variant="elevated"
+                        size="large"
+                        class="date-chip"
+                      >
+                        {{ formatDate(dateInfo.date) }}
+                      </v-chip>
+                      <span class="text-body-1">
+                        {{ formatUserNames(dateInfo.users) }}
+                        {{ dateInfo.users.length === 1 ? 'is' : 'are' }} available
+                      </span>
+                      <div class="d-flex flex-wrap ga-1 ml-auto">
+                        <v-chip
+                          v-for="user in dateInfo.users"
+                          :key="`user-${user.name}-${index}`"
+                          :color="user.color"
+                          variant="outlined"
+                          size="small"
+                        >
+                          {{ user.name }}
+                        </v-chip>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </v-card-text>
             </v-card>
@@ -585,16 +607,24 @@ const onDayClick = async (day) => {
     if (dateIndex > -1) {
       // Remove the date if it's already selected
       user.availableDates.splice(dateIndex, 1);
-      console.log(`🗓️ Removed ${clickedDate.toDateString()} for ${selectedUser.value} (pending submit)`);
+      console.log(
+        `🗓️ Removed ${clickedDate.toDateString()} for ${
+          selectedUser.value
+        } (pending submit)`
+      );
     } else {
       // Add the date if it's not selected
       user.availableDates.push(new Date(clickedDate));
-      console.log(`🗓️ Added ${clickedDate.toDateString()} for ${selectedUser.value} (pending submit)`);
+      console.log(
+        `🗓️ Added ${clickedDate.toDateString()} for ${
+          selectedUser.value
+        } (pending submit)`
+      );
     }
 
     // Force common dates to update (cross-browser compatibility)
     forceCommonDatesUpdate();
-    
+
     // Mark that user has pending changes
     hasPendingChanges.value = true;
   } catch (error) {
@@ -603,25 +633,24 @@ const onDayClick = async (day) => {
   }
 };
 
-// Helper function to compute common dates with multiple fallback methods
-const computeCommonDatesSafe = (usersData, trigger) => {
+// Helper function to compute dates with user availability information
+const computeUserAvailabilityByDate = (usersData, trigger) => {
   console.log(
-    "🔧 computeCommonDatesSafe: Starting computation, trigger:",
+    "🔧 computeUserAvailabilityByDate: Starting computation, trigger:",
     trigger
   );
 
   if (!usersData || usersData.length === 0) {
-    console.log("🔧 computeCommonDatesSafe: No users data");
+    console.log("🔧 computeUserAvailabilityByDate: No users data");
     return [];
   }
 
-  // Method 1: Try the for-loop approach (most compatible)
   try {
-    console.log("🔧 computeCommonDatesSafe: Trying for-loop method");
+    console.log("🔧 computeUserAvailabilityByDate: Building date availability map");
 
-    const allSelectedDates = [];
-    const seenTimestamps = new Set();
+    const dateAvailabilityMap = new Map();
 
+    // Build map of dates to users who are available
     for (const user of usersData) {
       if (!Array.isArray(user.availableDates)) continue;
 
@@ -632,195 +661,84 @@ const computeCommonDatesSafe = (usersData, trigger) => {
           date.getFullYear() >= 2020 &&
           date.getFullYear() <= 2030
         ) {
-          const timestamp = date.getTime();
-          if (!seenTimestamps.has(timestamp)) {
-            seenTimestamps.add(timestamp);
-            allSelectedDates.push(date);
+          const dateKey = date.toISOString().split("T")[0];
+          
+          if (!dateAvailabilityMap.has(dateKey)) {
+            dateAvailabilityMap.set(dateKey, {
+              date: new Date(date),
+              users: []
+            });
+          }
+          
+          const dateInfo = dateAvailabilityMap.get(dateKey);
+          if (!dateInfo.users.some(u => u.name === user.name)) {
+            dateInfo.users.push({
+              name: user.name,
+              color: user.color
+            });
           }
         }
       }
     }
 
-    const commonDates = [];
+    // Convert to array, filter to only dates with 2+ users, and sort by date
+    const availabilityByDate = Array.from(dateAvailabilityMap.values())
+      .filter(dateInfo => dateInfo.users.length >= 2) // Only show dates with 2+ users
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    for (const date of allSelectedDates) {
-      const dateTimestamp = date.getTime();
-      let isCommonToAll = true;
-
-      for (const user of usersData) {
-        if (!Array.isArray(user.availableDates)) {
-          isCommonToAll = false;
-          break;
-        }
-
-        let userHasThisDate = false;
-        for (const userDate of user.availableDates) {
-          if (
-            userDate instanceof Date &&
-            !isNaN(userDate.getTime()) &&
-            userDate.getTime() === dateTimestamp
-          ) {
-            userHasThisDate = true;
-            break;
-          }
-        }
-
-        if (!userHasThisDate) {
-          isCommonToAll = false;
-          break;
-        }
-      }
-
-      if (isCommonToAll) {
-        commonDates.push(date);
-      }
-    }
-
-    commonDates.sort((a, b) => a.getTime() - b.getTime());
     console.log(
-      "✅ computeCommonDatesSafe: For-loop method succeeded, found",
-      commonDates.length,
-      "dates"
+      "✅ computeUserAvailabilityByDate: Successfully found",
+      availabilityByDate.length,
+      "dates with 2+ users available"
     );
-    return commonDates;
-  } catch (error) {
-    console.warn(
-      "⚠️ computeCommonDatesSafe: For-loop method failed:",
-      error.message
-    );
-  }
-
-  // Method 2: Try Map-based approach
-  try {
-    console.log("🔧 computeCommonDatesSafe: Trying Map-based method");
-
-    const dateMap = new Map();
-
-    // Count occurrences of each date
-    for (const user of usersData) {
-      if (!Array.isArray(user.availableDates)) continue;
-
-      for (const date of user.availableDates) {
-        if (date instanceof Date && !isNaN(date.getTime())) {
-          const key = date.toISOString().split("T")[0];
-          const count = dateMap.get(key) || 0;
-          dateMap.set(key, count + 1);
-        }
-      }
-    }
-
-    // Find dates that appear for all users
-    const commonDates = [];
-    for (const [dateStr, count] of dateMap) {
-      if (count === usersData.length) {
-        const date = new Date(dateStr);
-        if (!isNaN(date.getTime())) {
-          commonDates.push(date);
-        }
-      }
-    }
-
-    commonDates.sort((a, b) => a.getTime() - b.getTime());
-    console.log(
-      "✅ computeCommonDatesSafe: Map-based method succeeded, found",
-      commonDates.length,
-      "dates"
-    );
-    return commonDates;
-  } catch (error) {
-    console.warn(
-      "⚠️ computeCommonDatesSafe: Map-based method failed:",
-      error.message
-    );
-  }
-
-  // Method 3: Fallback to simple iteration (most basic)
-  try {
-    console.log("🔧 computeCommonDatesSafe: Trying simple iteration method");
-
-    if (usersData.length === 0) return [];
-
-    const firstUser = usersData[0];
-    if (!Array.isArray(firstUser.availableDates)) return [];
-
-    const commonDates = [];
-
-    // Check each date from the first user
-    for (const date of firstUser.availableDates) {
-      if (!(date instanceof Date) || isNaN(date.getTime())) continue;
-
-      let isCommon = true;
-      const dateTime = date.getTime();
-
-      // Check if all other users have this date
-      for (let i = 1; i < usersData.length; i++) {
-        const user = usersData[i];
-        if (!Array.isArray(user.availableDates)) {
-          isCommon = false;
-          break;
-        }
-
-        let found = false;
-        for (const userDate of user.availableDates) {
-          if (userDate instanceof Date && userDate.getTime() === dateTime) {
-            found = true;
-            break;
-          }
-        }
-
-        if (!found) {
-          isCommon = false;
-          break;
-        }
-      }
-
-      if (isCommon) {
-        commonDates.push(date);
-      }
-    }
-
-    commonDates.sort((a, b) => a.getTime() - b.getTime());
-    console.log(
-      "✅ computeCommonDatesSafe: Simple iteration succeeded, found",
-      commonDates.length,
-      "dates"
-    );
-    return commonDates;
+    
+    return availabilityByDate;
   } catch (error) {
     console.error(
-      "❌ computeCommonDatesSafe: All methods failed:",
+      "❌ computeUserAvailabilityByDate: Failed:",
       error.message
     );
     return [];
   }
 };
 
-const commonAvailableDates = computed(() => {
+const userAvailabilityByDate = computed(() => {
   try {
     // Include the trigger in the computation to force reactivity
     const trigger = commonDatesUpdateTrigger.value;
 
     if (!calendarReady.value || users.value.length === 0) {
       console.log(
-        "🔍 commonAvailableDates: Calendar not ready or no users, trigger:",
+        "🔍 userAvailabilityByDate: Calendar not ready or no users, trigger:",
         trigger
       );
       return [];
     }
 
     console.log(
-      "🔍 commonAvailableDates: Computing common dates for",
+      "🔍 userAvailabilityByDate: Computing availability for",
       users.value.length,
       "users, trigger:",
       trigger
     );
 
-    return computeCommonDatesSafe(users.value, trigger);
+    return computeUserAvailabilityByDate(users.value, trigger);
   } catch (error) {
-    console.error("❌ Error in commonAvailableDates computed:", error);
+    console.error("❌ Error in userAvailabilityByDate computed:", error);
     return [];
   }
 });
+
+// Helper function to format user names nicely
+const formatUserNames = (users) => {
+  if (!users || users.length === 0) return "";
+  if (users.length === 1) return users[0].name;
+  if (users.length === 2) return `${users[0].name} and ${users[1].name}`;
+  
+  const allButLast = users.slice(0, -1).map(u => u.name).join(", ");
+  const last = users[users.length - 1].name;
+  return `${allButLast}, and ${last}`;
+};
 
 const formatDate = (date) => {
   try {
@@ -865,7 +783,7 @@ const submitToDatabase = async () => {
       alert(
         `🎭 Demo mode: Would submit ${user.name}'s availability for ${dateStrings.length} dates. Check console for details.`
       );
-      
+
       // Clear pending changes flag in demo mode too
       hasPendingChanges.value = false;
       return;
@@ -959,7 +877,7 @@ const runBrowserTest = () => {
 
   const testResults = {
     browser: navigator.userAgent,
-    commonDatesCount: commonAvailableDates.value.length,
+    availabilityDatesCount: userAvailabilityByDate.value.length,
     usersWithData: users.value.filter((u) => u.availableDates?.length > 0)
       .length,
     totalUsers: users.value.length,
@@ -971,20 +889,33 @@ const runBrowserTest = () => {
   const testData = [
     {
       name: "Test1",
+      color: "blue",
       availableDates: [new Date("2025-08-15"), new Date("2025-08-20")],
     },
     {
       name: "Test2",
+      color: "green",
       availableDates: [new Date("2025-08-15"), new Date("2025-08-25")],
     },
-    { name: "Test3", availableDates: [new Date("2025-08-15")] },
-    { name: "Test4", availableDates: [new Date("2025-08-15")] },
+    { 
+      name: "Test3", 
+      color: "orange",
+      availableDates: [new Date("2025-08-15")] 
+    },
+    { 
+      name: "Test4", 
+      color: "purple",
+      availableDates: [new Date("2025-08-15")] 
+    },
   ];
 
-  const testResult = computeCommonDatesSafe(testData, Date.now());
+  const testResult = computeUserAvailabilityByDate(testData, Date.now());
   console.log(
     "✅ Direct computation test:",
-    testResult.map((d) => d.toISOString().split("T")[0])
+    testResult.map((item) => ({
+      date: item.date.toISOString().split("T")[0],
+      users: item.users.map(u => u.name)
+    }))
   );
 
   alert(
@@ -995,11 +926,11 @@ const runBrowserTest = () => {
         : testResults.browser.includes("Chrome")
         ? "Chrome"
         : "Other"
-    }\nCommon Dates: ${testResults.commonDatesCount}\nUsers with Data: ${
+    }\nAvailability Dates: ${testResults.availabilityDatesCount}\nUsers with Data: ${
       testResults.usersWithData
     }/${testResults.totalUsers}\nDirect Test Result: ${
       testResult.length
-    } common dates\n\nCheck console for detailed results.`
+    } dates with availability\n\nCheck console for detailed results.`
   );
 };
 
@@ -1022,10 +953,10 @@ const addTestData = () => {
 
   forceCommonDatesUpdate();
 
-  const commonCount = commonAvailableDates.value.length;
-  console.log("✅ Test data added, common dates:", commonCount);
+  const availabilityCount = userAvailabilityByDate.value.length;
+  console.log("✅ Test data added, availability dates:", availabilityCount);
   alert(
-    `📊 Test data added!\n\nAll users now have ${testDates.length} common dates.\nComputed common dates: ${commonCount}\n\nExpected: 3 common dates (Aug 15, Sep 1, Sep 15)`
+    `📊 Test data added!\n\nUsers now have dates selected.\nTotal dates with availability: ${availabilityCount}\n\nExpected: Several dates with different user combinations`
   );
 };
 
@@ -1262,10 +1193,31 @@ window.addEventListener("error", (event) => {
   height: 100%;
 }
 
+/* Availability item styling */
+.availability-item {
+  padding: 12px;
+  border-radius: 8px;
+  background-color: rgba(var(--v-theme-surface-variant), 0.1);
+  border: 1px solid rgba(var(--v-theme-outline), 0.2);
+}
+
+.date-chip {
+  min-width: 120px;
+  font-weight: 600;
+}
+
 /* Responsive padding */
 @media (max-width: 600px) {
   .v-container {
     padding: 8px !important;
+  }
+  
+  .availability-item {
+    padding: 8px;
+  }
+  
+  .date-chip {
+    min-width: 100px;
   }
 }
 </style>
