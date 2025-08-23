@@ -64,6 +64,19 @@
                   ></v-progress-circular>
                 </div>
                 <div v-else class="calendar-container">
+                  <!-- Loading overlay for date operations -->
+                  <div 
+                    v-if="isDateOperationInProgress" 
+                    class="date-operation-overlay"
+                  >
+                    <v-progress-circular
+                      indeterminate
+                      color="primary"
+                      size="32"
+                    ></v-progress-circular>
+                    <span class="ml-2">Syncing...</span>
+                  </div>
+                  
                   <VCalendar
                     v-if="!calendarError && calendarReady"
                     :key="calendarKey"
@@ -78,6 +91,7 @@
                     view="monthly"
                     :columns="1"
                     class="custom-calendar"
+                    :class="{ 'calendar-disabled': isDateOperationInProgress }"
                   />
                   <div v-else-if="calendarError" class="text-center">
                     <v-icon size="48" class="mb-2">mdi-calendar-alert</v-icon>
@@ -106,13 +120,13 @@
                     @click="submitToDatabase"
                     :disabled="!hasSelectedDates || isSubmitting"
                     :loading="isSubmitting"
-                    :color="hasPendingChanges ? 'warning' : 'primary'"
-                    :variant="hasPendingChanges ? 'elevated' : 'outlined'"
-                    prepend-icon="mdi-database-plus"
+                    :color="hasPendingChanges ? 'warning' : 'success'"
+                    :variant="hasPendingChanges ? 'elevated' : 'tonal'"
+                    prepend-icon="mdi-database-sync"
                     size="large"
                   >
                     {{
-                      hasPendingChanges ? "Save Changes" : "Submit to Database"
+                      hasPendingChanges ? "Sync Pending Changes" : "✓ Auto-synced"
                     }}
                     <v-chip
                       v-if="hasPendingChanges"
@@ -121,7 +135,7 @@
                       size="x-small"
                       class="ml-2"
                     >
-                      Pending
+                      {{ users.find(u => u.name === selectedUser)?.availableDates?.length || 0 }}
                     </v-chip>
                   </v-btn>
                 </div>
@@ -294,6 +308,7 @@ const calendarError = ref(false);
 const calendarReady = ref(false);
 const calendarKey = ref(0); // Force re-render when needed
 const currentCalendarPage = ref({ month: 8, year: 2025 }); // Start with August 2025
+const isDateOperationInProgress = ref(false); // Track individual date add/remove operations
 
 // Browser compatibility detection
 const userAgent =
@@ -595,7 +610,7 @@ const onDayClick = async (day) => {
     if (!calendarReady.value || calendarError.value) return;
 
     const user = users.value.find((u) => u.name === selectedUser.value);
-    if (!user || isSubmitting.value || !day || !day.date) return;
+    if (!user || isSubmitting.value || isDateOperationInProgress.value || !day || !day.date) return;
 
     const clickedDate = day.date;
 
@@ -608,33 +623,81 @@ const onDayClick = async (day) => {
       (d) => d instanceof Date && d.getTime() === clickedDate.getTime()
     );
 
-    // Update UI immediately (local change only)
-    if (dateIndex > -1) {
+    const isRemoving = dateIndex > -1;
+    const dateString = clickedDate.toISOString().split('T')[0];
+
+    // Update UI immediately for responsive feedback
+    if (isRemoving) {
       // Remove the date if it's already selected
       user.availableDates.splice(dateIndex, 1);
       console.log(
-        `🗓️ Removed ${clickedDate.toDateString()} for ${
-          selectedUser.value
-        } (pending submit)`
+        `🗓️ Removing ${clickedDate.toDateString()} for ${selectedUser.value}`
       );
     } else {
       // Add the date if it's not selected
       user.availableDates.push(new Date(clickedDate));
       console.log(
-        `🗓️ Added ${clickedDate.toDateString()} for ${
-          selectedUser.value
-        } (pending submit)`
+        `🗓️ Adding ${clickedDate.toDateString()} for ${selectedUser.value}`
       );
     }
 
     // Force common dates to update (cross-browser compatibility)
     forceCommonDatesUpdate();
 
-    // Mark that user has pending changes
-    hasPendingChanges.value = true;
+    // Immediately sync with database if available
+    if (DatabaseService.isAvailable() && !demoMode.value) {
+      try {
+        isDateOperationInProgress.value = true;
+        
+        if (isRemoving) {
+          await DatabaseService.removeUserDate(selectedUser.value, dateString);
+          console.log(`✅ Successfully removed ${dateString} from database for ${selectedUser.value}`);
+        } else {
+          await DatabaseService.addUserDate(selectedUser.value, dateString);
+          console.log(`✅ Successfully added ${dateString} to database for ${selectedUser.value}`);
+        }
+        
+        // Clear pending changes since we've immediately synced
+        hasPendingChanges.value = false;
+      } catch (dbError) {
+        console.error(`❌ Database sync failed for ${selectedUser.value}:`, dbError);
+        
+        // Revert the UI change since database sync failed
+        if (isRemoving) {
+          // Re-add the date that we tried to remove
+          user.availableDates.push(new Date(clickedDate));
+        } else {
+          // Remove the date that we tried to add
+          const revertIndex = user.availableDates.findIndex(
+            (d) => d instanceof Date && d.getTime() === clickedDate.getTime()
+          );
+          if (revertIndex > -1) {
+            user.availableDates.splice(revertIndex, 1);
+          }
+        }
+        
+        // Force common dates to update after reverting
+        forceCommonDatesUpdate();
+        
+        // Mark as pending changes since sync failed
+        hasPendingChanges.value = true;
+        
+        // Show user-friendly error message
+        alert(`Failed to ${isRemoving ? 'remove' : 'add'} date ${clickedDate.toDateString()}. Please try again or use the Submit button.`);
+      } finally {
+        isDateOperationInProgress.value = false;
+      }
+    } else {
+      // Demo mode or database not available - mark as pending
+      hasPendingChanges.value = true;
+      if (demoMode.value) {
+        console.log(`🎭 Demo mode: ${isRemoving ? 'Removed' : 'Added'} ${dateString} locally for ${selectedUser.value}`);
+      }
+    }
   } catch (error) {
     console.error("Error in onDayClick:", error);
     calendarError.value = true;
+    isDateOperationInProgress.value = false;
   }
 };
 
@@ -1061,6 +1124,7 @@ window.addEventListener("error", (event) => {
   width: fit-content;
   max-width: 100%;
   margin: 0 auto;
+  position: relative; /* Allow absolute positioning of overlay */
 }
 
 /* Make v-calendar responsive and fit content size */
@@ -1200,6 +1264,30 @@ window.addEventListener("error", (event) => {
 /* Full height cards */
 .v-card {
   height: 100%;
+}
+
+/* Date operation loading overlay */
+.date-operation-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  color: white;
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+/* Disabled calendar state */
+.calendar-disabled {
+  pointer-events: none;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
 }
 
 /* Availability item styling */
