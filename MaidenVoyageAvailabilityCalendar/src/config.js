@@ -15,12 +15,17 @@
  * - name: Display name (used in UI and database)
  * - color: Vuetify color name (blue, green, orange, purple, red, pink, etc.)
  * - availableDates: Leave as empty array (managed by the app)
+ * Optional rename support:
+ * If you rename a user, add a previousNames array with any old names so
+ * the database entries can be reconciled automatically.
+ * Example:
+ * { name: "New Name", previousNames: ["Old Name", "Older Name"], color: "blue", availableDates: [] }
  */
 export const users = [
-  { name: "Flint", color: "blue", availableDates: [] },
-  { name: "Yanni", color: "green", availableDates: [] },
-  { name: "Mike", color: "orange", availableDates: [] },
-  { name: "Zack", color: "purple", availableDates: [] },
+  { name: "Flint & Maryam", color: "blue", availableDates: [], previousNames: [] },
+  { name: "Bryan & Marlene", color: "green", availableDates: [], previousNames: [] },
+  { name: "Leslie & Manny", color: "orange", availableDates: [], previousNames: [] },
+  { name: "Molly & Hubby", color: "purple", availableDates: [], previousNames: [] },
 ];
 
 // ============================================================================
@@ -40,18 +45,18 @@ export const users = [
  */
 
 export const calendarConfig = {
-  // Minimum selectable date
-  minDate: new Date(2025, 7, 1), // August 1, 2025
-  
-  // Maximum selectable date
-  maxDate: new Date(2025, 9, 31), // October 31, 2025
-  
-  // Initial calendar page to display
-  // { month: 8 = August, year: 2025 }
+  // Desired start: October 1, 2025
+  // NOTE: JavaScript Date months are 0-indexed (0=Jan, 9=Oct)
+  minDate: new Date(2025, 9, 1), // October 1, 2025
+
+  // End of October 2025 (month 9, day 31)
+  maxDate: new Date(2025, 11, 31), // December 31, 2025
+
+  // Initial calendar page seed (will be normalized below to 1-indexed for v-calendar)
   initialPage: {
-    month: 8,  // August (0-indexed, so 8 = September... wait, let me fix this)
-    year: 2025
-  }
+    month: 9, // 0-index placeholder (will be replaced below)
+    year: 2025,
+  },
 };
 
 // Note: v-calendar uses 1-indexed months (1 = January, 12 = December)
@@ -70,9 +75,9 @@ calendarConfig.initialPage = {
  */
 export const appConfig = {
   // App name and branding
-  appName: "Trip to Fredericksberg Calendar",
-  shortName: "Fredericksberg",
-  description: "Collaborative calendar for tracking team availability for the trip to Fredericksberg",
+  appName: "Availability Calendar",
+  shortName: "Calendar",
+  description: "Collaborative calendar for tracking availability",
   
   // Theme colors (for PWA and UI)
   themeColor: "#1976D2",
@@ -84,6 +89,9 @@ export const appConfig = {
   // Logo path (relative to assets folder)
   logoPath: "./assets/FlintCal_Logo.png"
 };
+
+// Application version (bump this to force PWA/service worker & cache refresh)
+export const appVersion = "2025-10-05-3"; // bumped after extending navigation months
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -120,6 +128,17 @@ export const getDateRangeText = () => {
   const start = calendarConfig.minDate.toLocaleDateString(undefined, options);
   const end = calendarConfig.maxDate.toLocaleDateString(undefined, options);
   return `${start} - ${end}`;
+};
+
+// Build a rename mapping object: { currentName: [oldName1, oldName2] }
+export const getUserRenameMapping = () => {
+  const mapping = {};
+  for (const u of users) {
+    if (Array.isArray(u.previousNames) && u.previousNames.length > 0) {
+      mapping[u.name] = u.previousNames;
+    }
+  }
+  return mapping;
 };
 
 // ============================================================================

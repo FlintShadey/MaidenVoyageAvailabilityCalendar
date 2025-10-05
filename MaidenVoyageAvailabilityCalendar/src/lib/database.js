@@ -6,6 +6,57 @@ export class DatabaseService {
     return isSupabaseConfigured && supabase !== null;
   }
 
+  /**
+   * Reconcile user renames based on provided mapping.
+   * mapping format: { newName: ["Old Name 1", "Older Variant"], ... }
+   * For each newName, any rows whose user_name matches one of the old names
+   * are updated to the new name. Idempotent: safe to run on every startup.
+   */
+  static async reconcileUserRenames(renameMapping) {
+    if (!this.isAvailable()) return;
+    if (!renameMapping || typeof renameMapping !== 'object') return;
+
+    try {
+      for (const [newName, oldNames] of Object.entries(renameMapping)) {
+        if (!Array.isArray(oldNames) || oldNames.length === 0) continue;
+
+        // Fetch rows needing update
+        let rows = [];
+        try {
+          const { data: sel, error: selectError } = await supabase
+            .from('user_availability')
+            .select('user_name, selected_date')
+            .in('user_name', oldNames);
+          if (selectError) throw selectError;
+          rows = sel || [];
+        } catch (selErr) {
+          console.warn(`⚠️ Rename select failed for mapping to '${newName}':`, selErr.message);
+          continue; // go on to next mapping
+        }
+        if (!rows || rows.length === 0) continue; // nothing to do
+
+        // Update each distinct old name to new name
+        const uniqueOldNames = Array.from(new Set(rows.map(r => r.user_name)));
+        for (const oldName of uniqueOldNames) {
+          if (oldName === newName) continue;
+          try {
+            const { error: updateError } = await supabase
+              .from('user_availability')
+              .update({ user_name: newName, updated_at: new Date().toISOString() })
+              .eq('user_name', oldName);
+            if (updateError) throw updateError;
+            console.log(`🔄 Reconciled user rename: '${oldName}' -> '${newName}'`);
+          } catch (updErr) {
+            console.warn(`⚠️ Rename update failed '${oldName}' -> '${newName}':`, updErr.message);
+            continue;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to reconcile user renames:', error);
+    }
+  }
+
   // Fetch all user availability data
   static async getAllUserAvailability() {
     if (!this.isAvailable()) {

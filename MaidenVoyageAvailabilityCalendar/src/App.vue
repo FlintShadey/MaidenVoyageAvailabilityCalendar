@@ -15,7 +15,7 @@
                   contain
                 ></v-img>
               </div>
-              <v-card-title>Select User</v-card-title>
+              <v-card-title>Select Your Name </v-card-title>
               <v-card-text>
                 <!-- Demo Mode Alert -->
                 <v-alert
@@ -50,8 +50,9 @@
           </v-col>
           <v-col cols="12" sm="8" md="9" lg="10" xl="10" class="d-flex">
             <v-card class="flex-grow-1">
-              <v-card-title>Select Availability</v-card-title>
+              <v-card-title>Click All The Dates That You Are Available</v-card-title>
               <v-card-text class="pa-2 d-flex flex-column">
+
                 <div
                   v-if="isLoading"
                   class="d-flex align-center justify-center"
@@ -279,13 +280,30 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { DatabaseService } from "./lib/database.js";
 
 // Import configuration
-import config from "./config.js";
+import config, { appVersion, getUserRenameMapping } from "./config.js";
 import logoUrl from "./assets/FlintCal_Logo.png";
 
+// Debug: Log the config to verify it's loading correctly
+console.log("🔍 Config loaded (version", appVersion, "):", config);
+console.log("👥 Users from config (raw names):", config.users.map(u=>u.name));
+console.log("📅 Calendar config:", config.calendarConfig);
+
 // Initialize users from config
+// Important: create a fresh reactive copy so that template re-renders aren't blocked by frozen objects.
 const users = ref(config.users.map(user => ({ ...user })));
+// Force a unique key based on version to invalidate any cached virtual DOM
+const configVersionKey = ref(appVersion + ':' + users.value.map(u=>u.name).join('|'));
+
+// Toggle verbose logging without removing statements
+const DEBUG_VERBOSE = false;
+
+// TEMP DEBUG: Set to true to bypass database and force pure config users (leave false in production)
+const DEBUG_SKIP_DB = true;
 
 const selectedUser = ref(config.getDefaultUser());
+
+// Debug: Log initialized users
+console.log("✅ Initialized users:", users.value);
 
 // Reactive triggers for cross-browser compatibility
 const commonDatesUpdateTrigger = ref(0);
@@ -306,6 +324,56 @@ const calendarReady = ref(false);
 const calendarKey = ref(0); // Force re-render when needed
 const currentCalendarPage = ref(config.calendarConfig.initialPage); // Start with configured month
 const isDateOperationInProgress = ref(false); // Track individual date add/remove operations
+
+// Offline operation queue (add/remove) to be flushed when DB becomes available again
+const offlineQueue = ref([]); // items: { user, dateString, op: 'add'|'remove', attempt }
+const queueFlushInProgress = ref(false);
+const MAX_QUEUE_ATTEMPTS = 5;
+
+const enqueueOperation = (op, userName, dateString) => {
+  offlineQueue.value.push({ op, user: userName, dateString, attempt: 0 });
+  if (DEBUG_VERBOSE) console.log('📥 Queued operation', op, userName, dateString);
+};
+
+const flushOfflineQueue = async () => {
+  if (queueFlushInProgress.value) return;
+  if (!DatabaseService.isAvailable() || DEBUG_SKIP_DB) return;
+  if (offlineQueue.value.length === 0) return;
+  queueFlushInProgress.value = true;
+  try {
+    const remaining = [];
+    for (const item of offlineQueue.value) {
+      try {
+        if (item.op === 'add') {
+          await DatabaseService.addUserDate(item.user, item.dateString);
+          if (DEBUG_VERBOSE) console.log('✅ Flushed add', item);
+        } else {
+          await DatabaseService.removeUserDate(item.user, item.dateString);
+          if (DEBUG_VERBOSE) console.log('✅ Flushed remove', item);
+        }
+      } catch (e) {
+        item.attempt += 1;
+        if (item.attempt < MAX_QUEUE_ATTEMPTS) {
+          remaining.push(item); // retry later
+          if (DEBUG_VERBOSE) console.warn('🔄 Retrying later', item, e.message);
+        } else {
+          console.error('❌ Dropping queued op after max attempts', item, e.message);
+        }
+      }
+    }
+    offlineQueue.value = remaining;
+    if (remaining.length === 0) {
+      hasPendingChanges.value = false;
+    }
+  } finally {
+    queueFlushInProgress.value = false;
+  }
+};
+
+// Periodic flush attempt (browser tab active)
+setInterval(() => {
+  flushOfflineQueue();
+}, 8000);
 
 // Browser compatibility detection
 const userAgent =
@@ -366,6 +434,16 @@ const createSafeDate = (dateString) => {
 onMounted(async () => {
   try {
     if (DatabaseService.isAvailable()) {
+      // Reconcile any user renames before loading availability
+      try {
+        const renameMapping = getUserRenameMapping();
+        if (Object.keys(renameMapping).length > 0) {
+          console.log('🔄 Reconciling user renames with mapping:', renameMapping);
+          await DatabaseService.reconcileUserRenames(renameMapping);
+        }
+      } catch (reconcileErr) {
+        console.warn('User rename reconciliation failed or skipped:', reconcileErr);
+      }
       await loadAllUserAvailability();
       setupRealtimeSubscription();
     } else {
@@ -413,8 +491,39 @@ onUnmounted(() => {
   }
 });
 
+// Helper: normalize date to YYYY-MM-DD in local calendar sense (avoids timezone shift)
+const toYMD = (date) => {
+  if (!(date instanceof Date) || isNaN(date.getTime())) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+// De-duplicate date array (mutates user.availableDates)
+const dedupeDates = (arr) => {
+  if (!Array.isArray(arr)) return [];
+  const unique = Array.from(new Set(arr.filter(d => d instanceof Date && !isNaN(d)).map(d => d.getTime())));
+  return unique.map(t => new Date(t));
+};
+
+// Debounce helper
+const debounce = (fn, delay = 150) => {
+  let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+};
+
+// Track realtime load debounce
+let realtimeReloadScheduled = false;
+
 // Load all user availability from database
 const loadAllUserAvailability = async () => {
+  if (DEBUG_SKIP_DB) {
+    if (DEBUG_VERBOSE) console.log("🚧 DEBUG_SKIP_DB enabled - skipping database load. Users:", users.value.map(u=>u.name));
+    calendarReady.value = true;
+    isLoading.value = false;
+    forceCommonDatesUpdate();
+    return;
+  }
   if (!DatabaseService.isAvailable()) return;
 
   try {
@@ -428,11 +537,13 @@ const loadAllUserAvailability = async () => {
       clearTimeout(calendarUpdateTimer);
     }
 
-    // Create a new users array to avoid reactive issues during updates
-    const updatedUsers = users.value.map((user) => ({
+    // Create a new users array from config to ensure we have the latest user definitions
+    const updatedUsers = config.users.map((user) => ({
       ...user,
       availableDates: [],
     }));
+    
+    console.log("🔄 Loading users from config:", updatedUsers.map(u => u.name));
 
     // Populate user availability from database
     data.forEach((record) => {
@@ -469,7 +580,11 @@ const loadAllUserAvailability = async () => {
       forceCommonDatesUpdate();
     }, 100);
 
-    console.log("Loaded user availability from database:", data);
+    if (DEBUG_VERBOSE) {
+      console.log("Loaded user availability from database:", data);
+      console.log("👥 Users after DB load:", users.value.map(u=>u.name));
+      console.log("🎯 Selected user:", selectedUser.value);
+    }
   } catch (error) {
     console.error("Failed to load user availability:", error);
     console.log("🎭 Falling back to demo mode");
@@ -484,10 +599,16 @@ const loadAllUserAvailability = async () => {
 const setupRealtimeSubscription = () => {
   if (!DatabaseService.isAvailable()) return;
 
+  const debouncedReload = debounce(() => {
+    realtimeReloadScheduled = false;
+    loadAllUserAvailability();
+  }, 200);
+
   subscription.value = DatabaseService.subscribeToChanges(async (payload) => {
-    console.log("Real-time update received:", payload);
-    // Reload all data when changes occur
-    await loadAllUserAvailability();
+    if (DEBUG_VERBOSE) console.log("Real-time update received:", payload);
+    if (realtimeReloadScheduled) return; // already waiting
+    realtimeReloadScheduled = true;
+    debouncedReload();
   });
 };
 
@@ -521,10 +642,13 @@ const safeCalendarAttributes = computed(() => {
     }
 
     // Filter out any invalid dates and ensure they are proper Date objects
+    const minYear = config.calendarConfig.minDate.getFullYear();
+    const maxYear = config.calendarConfig.maxDate.getFullYear();
     const validDates = user.availableDates.filter((date) => {
       if (!(date instanceof Date)) return false;
       if (isNaN(date.getTime())) return false;
-      if (date.getFullYear() < 2020 || date.getFullYear() > 2030) return false;
+      const y = date.getFullYear();
+      if (y < minYear || y > maxYear) return false;
       return true;
     });
 
@@ -551,44 +675,7 @@ const safeCalendarAttributes = computed(() => {
   }
 });
 
-// Only show highlights for the selected user's dates
-const calendarAttributes = computed(() => {
-  try {
-    const user = users.value.find((u) => u.name === selectedUser.value);
-    if (!user || !user.availableDates || user.availableDates.length === 0)
-      return [];
-
-    // Filter out any invalid dates and ensure they are proper Date objects
-    const validDates = user.availableDates.filter((date) => {
-      return (
-        date instanceof Date &&
-        !isNaN(date.getTime()) &&
-        date.getFullYear() >= 2020 &&
-        date.getFullYear() <= 2030
-      );
-    });
-
-    if (validDates.length === 0) return [];
-
-    // Ensure the user has a valid color
-    const userColor = user.color || "blue";
-
-    return [
-      {
-        key: `${user.name}-highlights`,
-        highlight: {
-          color: userColor,
-          fillMode: "light",
-          class: "user-available-date",
-        },
-        dates: validDates,
-      },
-    ];
-  } catch (error) {
-    console.error("Error in calendarAttributes computed:", error);
-    return [];
-  }
-});
+// Removed unused calendarAttributes (safeCalendarAttributes is the canonical one)
 
 // Handle calendar page changes to maintain navigation state
 const onPageChange = (page) => {
@@ -602,14 +689,70 @@ const onPageChange = (page) => {
   }
 };
 
+// Month navigation helpers
+const monthRange = {
+  minYear: config.calendarConfig.minDate.getFullYear(),
+  minMonth: config.calendarConfig.minDate.getMonth() + 1, // 1-indexed for v-calendar
+  maxYear: config.calendarConfig.maxDate.getFullYear(),
+  maxMonth: config.calendarConfig.maxDate.getMonth() + 1,
+};
+
+const canGoPrevMonth = computed(() => {
+  const { year, month } = currentCalendarPage.value;
+  if (year === monthRange.minYear && month === monthRange.minMonth) return false;
+  return true;
+});
+const canGoNextMonth = computed(() => {
+  const { year, month } = currentCalendarPage.value;
+  if (year === monthRange.maxYear && month === monthRange.maxMonth) return false;
+  return true;
+});
+
+const goPrevMonth = () => {
+  if (!canGoPrevMonth.value) return;
+  let { year, month } = currentCalendarPage.value; // month is 1-indexed here
+  month -= 1;
+  if (month < 1) {
+    month = 12;
+    year -= 1;
+  }
+  currentCalendarPage.value = { month, year };
+  calendarKey.value += 1; // force rerender
+};
+
+const goNextMonth = () => {
+  if (!canGoNextMonth.value) return;
+  let { year, month } = currentCalendarPage.value;
+  month += 1;
+  if (month > 12) {
+    month = 1;
+    year += 1;
+  }
+  currentCalendarPage.value = { month, year };
+  calendarKey.value += 1;
+};
+
+const currentMonthLabel = computed(() => {
+  try {
+    const { month, year } = currentCalendarPage.value;
+    // month given to calendar is 1-indexed
+    const date = new Date(year, month - 1, 1);
+    return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  } catch (e) {
+    return '';
+  }
+});
+
 const onDayClick = async (day) => {
   try {
     if (!calendarReady.value || calendarError.value) return;
+    if (isDateOperationInProgress.value) return; // prevent rapid double clicks
 
     const user = users.value.find((u) => u.name === selectedUser.value);
-    if (!user || isSubmitting.value || isDateOperationInProgress.value || !day || !day.date) return;
+    if (!user || isSubmitting.value || !day || !day.date) return;
 
     const clickedDate = day.date;
+    isDateOperationInProgress.value = true; // lock early to avoid race
 
     // Ensure user.availableDates is an array
     if (!Array.isArray(user.availableDates)) {
@@ -621,7 +764,7 @@ const onDayClick = async (day) => {
     );
 
     const isRemoving = dateIndex > -1;
-    const dateString = clickedDate.toISOString().split('T')[0];
+  const dateString = toYMD(clickedDate);
 
     // Update UI immediately for responsive feedback
     if (isRemoving) {
@@ -639,12 +782,12 @@ const onDayClick = async (day) => {
     }
 
     // Force common dates to update (cross-browser compatibility)
-    forceCommonDatesUpdate();
+  user.availableDates = dedupeDates(user.availableDates);
+  forceCommonDatesUpdate();
 
     // Immediately sync with database if available
-    if (DatabaseService.isAvailable() && !demoMode.value) {
+    if (DatabaseService.isAvailable() && !demoMode.value && !DEBUG_SKIP_DB) {
       try {
-        isDateOperationInProgress.value = true;
         
         if (isRemoving) {
           await DatabaseService.removeUserDate(selectedUser.value, dateString);
@@ -685,11 +828,15 @@ const onDayClick = async (day) => {
         isDateOperationInProgress.value = false;
       }
     } else {
-      // Demo mode or database not available - mark as pending
+      // Demo mode or database not available - queue for later persistence if DB intended
+      if (!demoMode.value && !DEBUG_SKIP_DB) {
+        enqueueOperation(isRemoving ? 'remove' : 'add', selectedUser.value, dateString);
+      }
       hasPendingChanges.value = true;
       if (demoMode.value) {
         console.log(`🎭 Demo mode: ${isRemoving ? 'Removed' : 'Added'} ${dateString} locally for ${selectedUser.value}`);
       }
+      isDateOperationInProgress.value = false; // release lock
     }
   } catch (error) {
     console.error("Error in onDayClick:", error);
@@ -779,12 +926,14 @@ const userAvailabilityByDate = computed(() => {
       return [];
     }
 
-    console.log(
-      "🔍 userAvailabilityByDate: Computing availability for",
-      users.value.length,
-      "users, trigger:",
-      trigger
-    );
+    if (DEBUG_VERBOSE) {
+      console.log(
+        "🔍 userAvailabilityByDate: Computing availability for",
+        users.value.length,
+        "users, trigger:",
+        trigger
+      );
+    }
 
     return computeUserAvailabilityByDate(users.value, trigger);
   } catch (error) {
@@ -1062,6 +1211,7 @@ window.addEventListener("unhandledrejection", (event) => {
     // Auto-reset after a brief delay
     setTimeout(() => {
       resetCalendar();
+      flushOfflineQueue();
     }, 1000);
   }
 });
