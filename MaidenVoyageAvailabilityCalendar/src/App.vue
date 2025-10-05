@@ -80,8 +80,8 @@
                   <VCalendar
                     v-if="!calendarError && calendarReady"
                     :key="calendarKey"
-                    :min-date="new Date(2025, 7, 1)"
-                    :max-date="new Date(2025, 9, 31)"
+                    :min-date="config.calendarConfig.minDate"
+                    :max-date="config.calendarConfig.maxDate"
                     :from-page="currentCalendarPage"
                     :attributes="safeCalendarAttributes"
                     @dayclick="onDayClick"
@@ -223,7 +223,7 @@
                 >
                   <v-icon size="48" class="mb-2">mdi-calendar-question</v-icon>
                   <p>
-                    No dates with 2 or more users available yet. Select dates
+                    No dates with {{ config.appConfig.minUsersForSharedAvailability }} or more users available yet. Select dates
                     for multiple users to see shared availability!
                   </p>
                 </div>
@@ -278,17 +278,14 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 // Import DatabaseService normally and handle errors at runtime
 import { DatabaseService } from "./lib/database.js";
 
-// Import logo asset
+// Import configuration
+import config from "./config.js";
 import logoUrl from "./assets/FlintCal_Logo.png";
 
-const users = ref([
-  { name: "Flint", color: "blue", availableDates: [] },
-  { name: "Yanni", color: "green", availableDates: [] },
-  { name: "Mike", color: "orange", availableDates: [] },
-  { name: "Zack", color: "purple", availableDates: [] },
-]);
+// Initialize users from config
+const users = ref(config.users.map(user => ({ ...user })));
 
-const selectedUser = ref(users.value[0].name);
+const selectedUser = ref(config.getDefaultUser());
 
 // Reactive triggers for cross-browser compatibility
 const commonDatesUpdateTrigger = ref(0);
@@ -307,7 +304,7 @@ const demoMode = ref(false);
 const calendarError = ref(false);
 const calendarReady = ref(false);
 const calendarKey = ref(0); // Force re-render when needed
-const currentCalendarPage = ref({ month: 8, year: 2025 }); // Start with August 2025
+const currentCalendarPage = ref(config.calendarConfig.initialPage); // Start with configured month
 const isDateOperationInProgress = ref(false); // Track individual date add/remove operations
 
 // Browser compatibility detection
@@ -751,9 +748,9 @@ const computeUserAvailabilityByDate = (usersData, trigger) => {
       }
     }
 
-    // Convert to array, filter to only dates with 2+ users, and sort by date
+    // Convert to array, filter to only dates with minimum users, and sort by date
     const availabilityByDate = Array.from(dateAvailabilityMap.values())
-      .filter((dateInfo) => dateInfo.users.length >= 2) // Only show dates with 2+ users
+      .filter((dateInfo) => dateInfo.users.length >= config.appConfig.minUsersForSharedAvailability) // Only show dates with enough users
       .sort((a, b) => a.date.getTime() - b.date.getTime());
 
     console.log(
