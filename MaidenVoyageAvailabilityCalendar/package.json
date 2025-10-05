@@ -8,12 +8,15 @@
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "npm run build && gh-pages -d dist",
+    "db:migrate": "node migrate-users.js",
+    "db:clear": "node clear-database.js",
     "health": "echo '\n🏥 Health Check Instructions:\n1. Open the app in your browser\n2. Open browser console (F12)\n3. Copy and paste the contents of health-check.js\n4. Press Enter to run the health check\n\nOr run: npm run demo'"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",
     "@popperjs/core": "^2.11.8",
     "@supabase/supabase-js": "^2.49.8",
+    "dotenv": "^17.2.3",
     "v-calendar": "^3.1.2",
     "vue": "^3.5.13",
     "vuetify": "^3.8.7"
