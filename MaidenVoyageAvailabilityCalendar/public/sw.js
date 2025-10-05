@@ -5,7 +5,7 @@ const urlsToCache = [
   "/src/main.js",
   "/src/App.vue",
   "/src/style.css",
-  "/src/assets/TriptoFredericksberg.png",
+  "/src/assets/FlintCal_Logo.png",
   "/icons/icon-192x192.png",
   "/icons/icon-512x512.png",
 ];

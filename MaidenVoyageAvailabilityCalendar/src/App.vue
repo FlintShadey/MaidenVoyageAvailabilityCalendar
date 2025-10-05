@@ -279,7 +279,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { DatabaseService } from "./lib/database.js";
 
 // Import logo asset
-import logoUrl from "./assets/TriptoFredericksberg.png";
+import logoUrl from "./assets/FlintCal_Logo.png";
 
 const users = ref([
   { name: "Flint", color: "blue", availableDates: [] },

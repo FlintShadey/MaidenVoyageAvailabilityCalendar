@@ -11,7 +11,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
       },
-      includeAssets: ["favicon.ico", "TriptoFredericksberg.png", "icons/*.png"],
+      includeAssets: ["favicon.ico", "FlintCal_Logo.png", "icons/*.png"],
       manifest: {
         name: "Trip to Fredericksberg Calendar",
         short_name: "Fredericksberg",
