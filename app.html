@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flint's Availability Calendar (Fresh)</title>
+    <meta name="description" content="Fresh uncached build for availability calendar." />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <style>
+      html,body { margin:0; padding:0; width:100vw; min-height:100vh; box-sizing:border-box; }
+      #app { width:100vw; min-height:100vh; }
+      .cache-note { position:fixed; top:4px; left:4px; background:#1976d2; color:#fff; padding:4px 8px; font:12px/1.2 system-ui; z-index:9999; border-radius:4px; }
+    </style>
+    <script>
+      // Cache bust & SW unregister to ensure Safari loads newest JS (pure date logic + noon fix)
+      (async () => {
+        const APP_BUNDLE_VERSION = '2025-10-07-3';
+        console.log('🚀 Fresh page load (app.html) version', APP_BUNDLE_VERSION);
+        if ('serviceWorker' in navigator) {
+          try {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            for (const r of regs) {
+              console.log('🔄 Unregistering existing service worker to avoid stale precache:', r.scope);
+              await r.unregister();
+            }
+            // Give the browser a short moment to drop old caches
+            setTimeout(async () => {
+              try {
+                if (caches) {
+                  const names = await caches.keys();
+                  for (const n of names) {
+                    if (/workbox|precach/i.test(n) || /runtime/i.test(n)) {
+                      console.log('🧹 Deleting cache bucket', n);
+                      await caches.delete(n);
+                    }
+                  }
+                }
+              } catch (e) { console.warn('Cache cleanup issue', e); }
+            }, 250);
+          } catch (e) {
+            console.warn('SW unregister failed', e);
+          }
+        }
+      })();
+    </script>
+    <!-- IMPORTANT: Add version query param so Workbox precache does not match old asset -->
+    <script type="module" crossorigin src="/assets/index-CSzit8TS.js?v=2025-10-07-3"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CtDHmW9a.css" />
+  </head>
+  <body>
+    <div class="cache-note">Fresh mode (no SW) – version 2025-10-07-3</div>
+    <div id="app"></div>
+  </body>
+</html>
