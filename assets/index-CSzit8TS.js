@@ -11086,46 +11086,48 @@ class Hn {
   static async setUserAvailability(t, n) {
     if (!this.isAvailable()) throw new Error("Database not configured");
     try {
-      console.log(`🔄 Setting availability for ${t} with ${n ? n.length : 0} dates`);
-      
+      console.log(
+        `🔄 Setting availability for ${t} with ${n ? n.length : 0} dates`
+      );
+
       // First, delete all existing records for this user
       const { error: deleteError } = await jn
         .from("user_availability")
         .delete()
         .eq("user_name", t);
-      
+
       if (deleteError) {
         console.error(`❌ Delete error for ${t}:`, deleteError);
         throw deleteError;
       }
-      
+
       console.log(`✅ Deleted existing records for ${t}`);
-      
+
       // If no dates provided, we're done (user cleared their selection)
       if (!n || n.length === 0) {
         console.log(`✅ No dates to insert for ${t}, operation complete`);
         return [];
       }
-      
+
       // Insert new records with upsert to handle any remaining duplicates
       const records = n.map((s) => ({
         user_name: t,
         selected_date: s,
         updated_at: new Date().toISOString(),
       }));
-      
+
       console.log(`🔄 Inserting ${records.length} new records for ${t}`);
-      
+
       const { data: insertData, error: insertError } = await jn
         .from("user_availability")
-        .upsert(records, { onConflict: 'user_name,selected_date' })
+        .upsert(records, { onConflict: "user_name,selected_date" })
         .select();
-      
+
       if (insertError) {
         console.error(`❌ Insert error for ${t}:`, insertError);
         throw insertError;
       }
-      
+
       console.log(`✅ Successfully set availability for ${t}:`, insertData);
       return insertData;
     } catch (a) {
@@ -11537,52 +11539,85 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
               ),
               G = de > -1,
               ce = $(ie);
+            console.log(`🔍 BEFORE toggle: User has ${j.availableDates.length} dates:`, 
+              j.availableDates.map(d => d.toDateString()));
+            console.log(`🎯 Target date: ${ie.toDateString()}, Found at index: ${de}, Will ${G ? 'REMOVE' : 'ADD'}`);
+            
             G
               ? (j.availableDates.splice(de, 1),
                 console.log(`🗓️ Removing ${ie.toDateString()} for ${n.value}`))
               : (j.availableDates.push(new Date(ie)),
-                console.log(`🗓️ Adding ${ie.toDateString()} for ${n.value}`)),
-              (j.availableDates = I(j.availableDates)),
-              r();
+                console.log(`🗓️ Adding ${ie.toDateString()} for ${n.value}`));
+                
+            console.log(`🔍 AFTER splice/push, BEFORE I(): User has ${j.availableDates.length} dates:`, 
+              j.availableDates.map(d => d.toDateString()));
               
+            j.availableDates = I(j.availableDates);
+            
+            console.log(`🔍 AFTER I() deduplication: User has ${j.availableDates.length} dates:`, 
+              j.availableDates.map(d => d.toDateString()));
+              
+            r();
+
             // Immediately sync with database (toggle behavior)
             if (Hn.isAvailable() && !c.value) {
-              console.log(`💾 Immediately syncing ${G ? "removal" : "addition"} to database for ${n.value}`);
+              console.log(
+                `💾 Immediately syncing ${
+                  G ? "removal" : "addition"
+                } to database for ${n.value}`
+              );
               const updatedDates = j.availableDates
-                .filter((date) => date instanceof Date && !isNaN(date.getTime()))
+                .filter(
+                  (date) => date instanceof Date && !isNaN(date.getTime())
+                )
                 .map((date) => date.toISOString().split("T")[0]);
-              
+                
+              console.log(`📤 Sending to database:`, updatedDates);
+
               try {
                 await Hn.setUserAvailability(n.value, updatedDates);
-                console.log(`✅ Successfully synced ${G ? "removal" : "addition"} for ${n.value}`);
+                console.log(
+                  `✅ Successfully synced ${G ? "removal" : "addition"} for ${
+                    n.value
+                  }`
+                );
               } catch (syncError) {
                 console.error(`❌ Failed to sync to database:`, syncError);
                 // Revert the local change if database sync failed
                 if (G) {
                   j.availableDates.push(new Date(ie));
-                  console.log(`🔄 Reverted: Re-added ${ie.toDateString()} locally due to sync failure`);
+                  console.log(
+                    `🔄 Reverted: Re-added ${ie.toDateString()} locally due to sync failure`
+                  );
                 } else {
                   const revertIndex = j.availableDates.findIndex(
-                    (date) => date instanceof Date && date.getTime() === ie.getTime()
+                    (date) =>
+                      date instanceof Date && date.getTime() === ie.getTime()
                   );
                   if (revertIndex > -1) {
                     j.availableDates.splice(revertIndex, 1);
-                    console.log(`🔄 Reverted: Removed ${ie.toDateString()} locally due to sync failure`);
+                    console.log(
+                      `🔄 Reverted: Removed ${ie.toDateString()} locally due to sync failure`
+                    );
                   }
                 }
                 j.availableDates = I(j.availableDates);
                 r();
-                alert(`Failed to ${G ? "remove" : "add"} date: ${syncError.message}`);
+                alert(
+                  `Failed to ${G ? "remove" : "add"} date: ${syncError.message}`
+                );
               }
             } else if (c.value) {
               // Demo mode
               console.log(
-                `🎭 Demo mode: ${G ? "Removed" : "Added"} ${ce} locally for ${n.value}`
+                `🎭 Demo mode: ${G ? "Removed" : "Added"} ${ce} locally for ${
+                  n.value
+                }`
               );
-              (s.value = !0);
+              s.value = !0;
             }
-            
-            (h.value = !1);
+
+            h.value = !1;
           } catch (j) {
             console.error("Error in onDayClick:", j),
               (u.value = !0),
