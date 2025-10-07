@@ -11406,7 +11406,13 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
               if (!userDataMap[row.user_name]) {
                 userDataMap[row.user_name] = [];
               }
-              userDataMap[row.user_name].push(new Date(row.selected_date));
+              // Fix timezone issue: Create date in local timezone instead of UTC
+              // row.selected_date is "YYYY-MM-DD", we need to parse it as local date
+              const [year, month, day] = row.selected_date.split('-').map(Number);
+              const localDate = new Date(year, month - 1, day); // month is 0-indexed
+              
+              console.log(`🕐 Date conversion: "${row.selected_date}" → ${localDate.toDateString()}`);
+              userDataMap[row.user_name].push(localDate);
             }
 
             console.log("👥 Grouped user data:", userDataMap);
@@ -11570,46 +11576,73 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
             r();
 
             // Immediately sync with database (toggle behavior) - FORCE SYNC
-            console.log(`🚨 SYNC CHECK: Hn.isAvailable()=${Hn.isAvailable()}, c.value=${c.value}`);
-            
+            console.log(
+              `🚨 SYNC CHECK: Hn.isAvailable()=${Hn.isAvailable()}, c.value=${
+                c.value
+              }`
+            );
+
             if (Hn.isAvailable() && !c.value) {
               console.log(
-                `💾 FORCE SYNC: ${G ? "REMOVING" : "ADDING"} ${ie.toDateString()} for ${n.value}`
+                `💾 FORCE SYNC: ${
+                  G ? "REMOVING" : "ADDING"
+                } ${ie.toDateString()} for ${n.value}`
               );
-              
+
               const updatedDates = j.availableDates
-                .filter((date) => date instanceof Date && !isNaN(date.getTime()))
+                .filter(
+                  (date) => date instanceof Date && !isNaN(date.getTime())
+                )
                 .map((date) => date.toISOString().split("T")[0]);
 
-              console.log(`📤 FORCE SYNC: Sending ${updatedDates.length} dates to database:`, updatedDates);
+              console.log(
+                `📤 FORCE SYNC: Sending ${updatedDates.length} dates to database:`,
+                updatedDates
+              );
 
               try {
                 // Force the database operation
-                const result = await Hn.setUserAvailability(n.value, updatedDates);
-                console.log(`✅ FORCE SYNC SUCCESS: ${G ? "Removed" : "Added"} ${ie.toDateString()}`, result);
-                
+                const result = await Hn.setUserAvailability(
+                  n.value,
+                  updatedDates
+                );
+                console.log(
+                  `✅ FORCE SYNC SUCCESS: ${
+                    G ? "Removed" : "Added"
+                  } ${ie.toDateString()}`,
+                  result
+                );
+
                 // Force reload data to ensure UI is in sync
-                console.log(`🔄 FORCE RELOAD: Refreshing data from database...`);
+                console.log(
+                  `🔄 FORCE RELOAD: Refreshing data from database...`
+                );
                 await O(); // This should be the data loading function
-                
               } catch (syncError) {
                 console.error(`❌ FORCE SYNC FAILED:`, syncError);
                 // Revert the local change if database sync failed
                 if (G) {
                   j.availableDates.push(new Date(ie));
-                  console.log(`🔄 REVERTED: Re-added ${ie.toDateString()} locally`);
+                  console.log(
+                    `🔄 REVERTED: Re-added ${ie.toDateString()} locally`
+                  );
                 } else {
                   const revertIndex = j.availableDates.findIndex(
-                    (date) => date instanceof Date && date.getTime() === ie.getTime()
+                    (date) =>
+                      date instanceof Date && date.getTime() === ie.getTime()
                   );
                   if (revertIndex > -1) {
                     j.availableDates.splice(revertIndex, 1);
-                    console.log(`🔄 REVERTED: Removed ${ie.toDateString()} locally`);
+                    console.log(
+                      `🔄 REVERTED: Removed ${ie.toDateString()} locally`
+                    );
                   }
                 }
                 j.availableDates = I(j.availableDates);
                 r();
-                alert(`Failed to ${G ? "remove" : "add"} date: ${syncError.message}`);
+                alert(
+                  `Failed to ${G ? "remove" : "add"} date: ${syncError.message}`
+                );
               }
             } else if (c.value) {
               // Demo mode
