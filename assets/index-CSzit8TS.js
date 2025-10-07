@@ -11480,12 +11480,26 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
                   return year >= j && year <= ie;
                 })
                 .map((dateString) => {
-                  // Convert date string to Date object for calendar highlighting
+                  // Convert date string to Date object for calendar highlighting.
+                  // IMPORTANT: Use local noon to avoid Safari (and some libs) shifting the date
+                  // when interpreting midnight near DST or applying implicit UTC conversions.
                   const [year, month, day] = dateString.split("-").map(Number);
-                  return new Date(year, month - 1, day);
+                  const noonDate = new Date(year, month - 1, day, 12, 0, 0, 0);
+                  return noonDate;
                 });
             if (de.length === 0) return [];
             const G = B.color || "blue";
+            try {
+              // Debug only: log a sample of the first few highlight dates to ensure correctness in Safari
+              const sample = de.slice(0, 3).map(dtt => ({
+                dateString: $(dtt),
+                local: dtt.toString(),
+                iso: dtt.toISOString()
+              }));
+              console.log("🕛 Highlight sample (noon anchored):", sample);
+            } catch (dbgErr) {
+              console.warn("Highlight sample debug failed:", dbgErr);
+            }
             return [
               {
                 key: `${B.name}-highlights-${f.value}`,
