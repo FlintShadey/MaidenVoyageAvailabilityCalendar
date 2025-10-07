@@ -11543,17 +11543,46 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
               : (j.availableDates.push(new Date(ie)),
                 console.log(`🗓️ Adding ${ie.toDateString()} for ${n.value}`)),
               (j.availableDates = I(j.availableDates)),
-              r(),
-              (Hn.isAvailable() && !c.value && !hc) ||
-                (c.value,
-                (s.value = !0),
-                c.value &&
-                  console.log(
-                    `🎭 Demo mode: ${
-                      G ? "Removed" : "Added"
-                    } ${ce} locally for ${n.value}`
-                  ),
-                (h.value = !1));
+              r();
+              
+            // Immediately sync with database (toggle behavior)
+            if (Hn.isAvailable() && !c.value) {
+              console.log(`💾 Immediately syncing ${G ? "removal" : "addition"} to database for ${n.value}`);
+              const updatedDates = j.availableDates
+                .filter((date) => date instanceof Date && !isNaN(date.getTime()))
+                .map((date) => date.toISOString().split("T")[0]);
+              
+              try {
+                await Hn.setUserAvailability(n.value, updatedDates);
+                console.log(`✅ Successfully synced ${G ? "removal" : "addition"} for ${n.value}`);
+              } catch (syncError) {
+                console.error(`❌ Failed to sync to database:`, syncError);
+                // Revert the local change if database sync failed
+                if (G) {
+                  j.availableDates.push(new Date(ie));
+                  console.log(`🔄 Reverted: Re-added ${ie.toDateString()} locally due to sync failure`);
+                } else {
+                  const revertIndex = j.availableDates.findIndex(
+                    (date) => date instanceof Date && date.getTime() === ie.getTime()
+                  );
+                  if (revertIndex > -1) {
+                    j.availableDates.splice(revertIndex, 1);
+                    console.log(`🔄 Reverted: Removed ${ie.toDateString()} locally due to sync failure`);
+                  }
+                }
+                j.availableDates = I(j.availableDates);
+                r();
+                alert(`Failed to ${G ? "remove" : "add"} date: ${syncError.message}`);
+              }
+            } else if (c.value) {
+              // Demo mode
+              console.log(
+                `🎭 Demo mode: ${G ? "Removed" : "Added"} ${ce} locally for ${n.value}`
+              );
+              (s.value = !0);
+            }
+            
+            (h.value = !1);
           } catch (j) {
             console.error("Error in onDayClick:", j),
               (u.value = !0),
