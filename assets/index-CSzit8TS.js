@@ -11408,10 +11408,34 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
               }
               // Fix timezone issue: Create date in local timezone instead of UTC
               // row.selected_date is "YYYY-MM-DD", we need to parse it as local date
-              const [year, month, day] = row.selected_date.split('-').map(Number);
-              const localDate = new Date(year, month - 1, day); // month is 0-indexed
-              
-              console.log(`🕐 Date conversion: "${row.selected_date}" → ${localDate.toDateString()}`);
+              const [year, month, day] = row.selected_date
+                .split("-")
+                .map(Number);
+
+              // Safari on iOS has stricter date handling, use multiple fallback methods
+              let localDate;
+              const isSafari = S.value === "Safari";
+
+              if (isSafari) {
+                // Safari-specific: Use explicit local timezone construction
+                console.log(
+                  `🍎 Safari detected: Using Safari-specific date parsing for "${row.selected_date}"`
+                );
+                localDate = new Date();
+                localDate.setFullYear(year);
+                localDate.setMonth(month - 1); // month is 0-indexed
+                localDate.setDate(day);
+                localDate.setHours(12, 0, 0, 0); // Set to noon to avoid timezone edge cases
+              } else {
+                // Standard method for other browsers
+                localDate = new Date(year, month - 1, day);
+              }
+
+              console.log(
+                `🕐 Date conversion: "${
+                  row.selected_date
+                }" → ${localDate.toDateString()} (Safari: ${isSafari})`
+              );
               userDataMap[row.user_name].push(localDate);
             }
 
@@ -11593,7 +11617,7 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
                 .filter(
                   (date) => date instanceof Date && !isNaN(date.getTime())
                 )
-                .map((date) => date.toISOString().split("T")[0]);
+                .map((date) => $(date)); // Use Safari-safe date conversion
 
               console.log(
                 `📤 FORCE SYNC: Sending ${updatedDates.length} dates to database:`,
@@ -11686,7 +11710,7 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
                     ce.getFullYear() >= 2020 &&
                     ce.getFullYear() <= 2030
                   ) {
-                    const P = ce.toISOString().split("T")[0];
+                    const P = $(ce); // Use Safari-safe date conversion
                     ie.has(P) || ie.set(P, { date: new Date(ce), users: [] });
                     const E = ie.get(P);
                     E.users.some((U) => U.name === G.name) ||
@@ -11770,7 +11794,7 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
             if (c.value || !Hn.isAvailable()) {
               const ie = B.availableDates
                 .filter((de) => de instanceof Date && !isNaN(de.getTime()))
-                .map((de) => de.toISOString().split("T")[0]);
+                .map((de) => $(de)); // Use Safari-safe date conversion
               console.log(
                 `🎭 Demo mode - would submit ${B.name}'s availability:`,
                 { user: B.name, dates: ie, totalDates: ie.length }
@@ -11784,7 +11808,7 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
             l.value = !0;
             const j = B.availableDates
               .filter((ie) => ie instanceof Date && !isNaN(ie.getTime()))
-              .map((ie) => ie.toISOString().split("T")[0]);
+              .map((ie) => $(ie)); // Use Safari-safe date conversion
             if (j.length === 0) {
               alert("No valid dates to submit."), (l.value = !1);
               return;
