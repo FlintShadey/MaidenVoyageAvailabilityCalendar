@@ -11220,7 +11220,7 @@ const RP = {
     isDateInRange: FP,
     getDateRangeText: jP,
   },
-  YP = "/MaidenVoyageAvailabilityCalendar/assets/FlintCal_Logo-DRgUgF7s.png",
+  YP = "/assets/FlintCal_Logo-DRgUgF7s.png",
   UP = (e, t) => {
     const n = e.__vccOpts || e;
     for (const [a, r] of t) n[a] = r;
