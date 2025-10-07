@@ -11127,19 +11127,19 @@ class Hn {
   }
 }
 // Expose Hn class to global window for debugging and access
-console.log('🔍 Attempting to expose Hn to window...');
-console.log('🔍 Hn class exists:', typeof Hn);
-console.log('🔍 jn client exists:', typeof jn);
-console.log('🔍 window exists:', typeof window);
+console.log("🔍 Attempting to expose Hn to window...");
+console.log("🔍 Hn class exists:", typeof Hn);
+console.log("🔍 jn client exists:", typeof jn);
+console.log("🔍 window exists:", typeof window);
 
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   window.Hn = Hn;
   window.jn = jn;
-  console.log('🔧 Exposed Hn and jn to window for debugging');
-  console.log('🔧 Verify window.Hn:', typeof window.Hn);
-  console.log('🔧 Verify window.jn:', typeof window.jn);
+  console.log("🔧 Exposed Hn and jn to window for debugging");
+  console.log("🔧 Verify window.Hn:", typeof window.Hn);
+  console.log("🔧 Verify window.jn:", typeof window.jn);
 } else {
-  console.warn('⚠️ window is not available, cannot expose Hn');
+  console.warn("⚠️ window is not available, cannot expose Hn");
 }
 const ws = [
     {
@@ -49066,19 +49066,21 @@ nh.mount("#app");
 
 // Final attempt to expose Hn class to window (at end of file)
 setTimeout(() => {
-  console.log('🔄 Final attempt to expose Hn to window...');
-  if (typeof window !== 'undefined') {
+  console.log("🔄 Final attempt to expose Hn to window...");
+  if (typeof window !== "undefined") {
     // Try to find Hn in global scope
-    if (typeof Hn !== 'undefined') {
+    if (typeof Hn !== "undefined") {
       window.Hn = Hn;
       window.jn = jn;
-      console.log('✅ Successfully exposed Hn to window (method 1)');
+      console.log("✅ Successfully exposed Hn to window (method 1)");
     } else {
-      console.log('⚠️ Hn not found in global scope, searching...');
+      console.log("⚠️ Hn not found in global scope, searching...");
       // Search for Hn in all available scopes
       const globals = Object.getOwnPropertyNames(window);
-      const hnLike = globals.filter(name => name.includes('Hn') || name.includes('Database'));
-      console.log('🔍 Found possible Hn classes:', hnLike);
+      const hnLike = globals.filter(
+        (name) => name.includes("Hn") || name.includes("Database")
+      );
+      console.log("🔍 Found possible Hn classes:", hnLike);
     }
   }
 }, 100);
