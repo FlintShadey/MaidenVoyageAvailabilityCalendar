@@ -11373,9 +11373,12 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
         PureDate = {
           toKeyFromDate(d) {
             if (!(d instanceof Date) || isNaN(d.getTime())) return "";
-            const y = d.getUTCFullYear();
-            const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-            const day = String(d.getUTCDate()).padStart(2, "0");
+            // Use local methods if the time is at noon (our standard), otherwise use UTC to avoid timezone shifts
+            const hour = d.getHours();
+            const useLocal = hour >= 10 && hour <= 14; // If time is near noon, use local
+            const y = useLocal ? d.getFullYear() : d.getUTCFullYear();
+            const m = String((useLocal ? d.getMonth() : d.getUTCMonth()) + 1).padStart(2, "0");
+            const day = String(useLocal ? d.getDate() : d.getUTCDate()).padStart(2, "0");
             return `${y}-${m}-${day}`;
           },
           // Validate a date key shape
