@@ -11370,11 +11370,43 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
         });
       const $ = (B) => {
           if (!(B instanceof Date) || isNaN(B.getTime())) return "";
-          const j = B.getFullYear(),
-            ie = String(B.getMonth() + 1).padStart(2, "0"),
-            de = String(B.getDate()).padStart(2, "0");
-          return `${j}-${ie}-${de}`;
+          return PureDate.toKeyFromDate(B);
         },
+        // Pure date adapter – canonical representation is a YYYY-MM-DD string.
+        PureDate = {
+          toKeyFromDate(d) {
+            if (!(d instanceof Date) || isNaN(d.getTime())) return "";
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, "0");
+            const day = String(d.getDate()).padStart(2, "0");
+            return `${y}-${m}-${day}`;
+          },
+            // Validate a date key shape
+          isKey(k) {
+            return typeof k === "string" && /^\d{4}-\d{2}-\d{2}$/.test(k);
+          },
+          fromKey(k) {
+            if (!this.isKey(k)) return null;
+            const [y, m, d2] = k.split("-").map(Number);
+            return { year: y, month: m, day: d2 };
+          },
+          // Create a Date object set to local noon for display only
+          toDate(k) {
+            const p = this.fromKey(k);
+            if (!p) return null;
+            return new Date(p.year, p.month - 1, p.day, 12, 0, 0, 0);
+          },
+          normalize(keys) {
+            return Array.from(
+              new Set((Array.isArray(keys) ? keys : []).filter((k) => this.isKey(k)))
+            ).sort();
+          },
+          compare(a, b) {
+            return a.localeCompare(b);
+          },
+        };
+      // Expose adapter globally for debugging
+      if (typeof window !== "undefined") window.PureDate = PureDate;
         I = (B) =>
           Array.isArray(B)
             ? Array.from(
@@ -11480,21 +11512,17 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
                   return year >= j && year <= ie;
                 })
                 .map((dateString) => {
-                  // Convert date string to Date object for calendar highlighting.
-                  // IMPORTANT: Use local noon to avoid Safari (and some libs) shifting the date
-                  // when interpreting midnight near DST or applying implicit UTC conversions.
-                  const [year, month, day] = dateString.split("-").map(Number);
-                  const noonDate = new Date(year, month - 1, day, 12, 0, 0, 0);
-                  return noonDate;
+                  // Use adapter to produce a display Date at local noon (time ignored semantically)
+                  return PureDate.toDate(dateString);
                 });
             if (de.length === 0) return [];
             const G = B.color || "blue";
             try {
               // Debug only: log a sample of the first few highlight dates to ensure correctness in Safari
-              const sample = de.slice(0, 3).map(dtt => ({
+              const sample = de.slice(0, 3).map((dtt) => ({
                 dateString: $(dtt),
                 local: dtt.toString(),
-                iso: dtt.toISOString()
+                iso: dtt.toISOString(),
               }));
               console.log("🕛 Highlight sample (noon anchored):", sample);
             } catch (dbgErr) {
@@ -11565,7 +11593,7 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
               Array.isArray(j.availableDates) || (j.availableDates = []);
 
             // SIMPLE APPROACH: Work with date strings instead of Date objects
-            const targetDateString = $(ie); // Convert clicked date to "YYYY-MM-DD" string
+            const targetDateString = PureDate.toKeyFromDate(ie); // Convert clicked date to "YYYY-MM-DD" string (no time semantics)
             const de = j.availableDates.findIndex(
                 (dateString) => dateString === targetDateString
               ),
@@ -11593,7 +11621,7 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
             );
 
             // Remove duplicates from string array (much simpler than Date objects)
-            j.availableDates = [...new Set(j.availableDates)].sort();
+            j.availableDates = PureDate.normalize(j.availableDates);
 
             console.log(
               `🔍 AFTER deduplication: User has ${j.availableDates.length} unique date strings:`,
