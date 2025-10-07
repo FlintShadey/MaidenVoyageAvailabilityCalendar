@@ -1,7 +1,7 @@
 {
-  "name": "Trip to Fredericksberg Calendar",
-  "short_name": "Fredericksberg",
-  "description": "Collaborative calendar for tracking team availability for the trip to Fredericksberg",
+  "name": "Flint's Availability Calendar",
+  "short_name": "Flint's Calendar",
+  "description": "Collaborative calendar for tracking team availability.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1976D2",
