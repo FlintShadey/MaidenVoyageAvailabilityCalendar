@@ -11350,9 +11350,40 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
         };
       let D = !1;
       const O = async () => {
-          {
+          try {
+            (d.value = !0), (i.value = !1);
+            console.log("🔄 Loading data from Supabase...");
+            
+            const allData = await Hn.getAllUserAvailability();
+            console.log("📊 Raw Supabase data:", allData);
+            
+            // Group data by user
+            const userDataMap = {};
+            for (const row of allData) {
+              if (!userDataMap[row.user_name]) {
+                userDataMap[row.user_name] = [];
+              }
+              userDataMap[row.user_name].push(new Date(row.selected_date));
+            }
+            
+            console.log("👥 Grouped user data:", userDataMap);
+            
+            // Update user arrays with data from Supabase
+            for (const user of t.value) {
+              if (userDataMap[user.name]) {
+                user.availableDates = userDataMap[user.name];
+                console.log(`✅ Updated ${user.name} with ${user.availableDates.length} dates`);
+              } else {
+                user.availableDates = [];
+                console.log(`⚠️ No data found for ${user.name}`);
+              }
+            }
+            
             (d.value = !0), (i.value = !1), r();
-            return;
+            console.log("✅ Data loading complete");
+          } catch (error) {
+            console.error("❌ Error loading data:", error);
+            (u.value = !0), (d.value = !0), (i.value = !1);
           }
         },
         A = () => {
