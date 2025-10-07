@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Debug Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .status { font-weight: bold; }
+        .loading { opacity: 0.6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Availability Calendar - Supabase Debug Tool</h1>
+        
+        <div class="section">
+            <h2>📋 Current Status</h2>
+            <div id="status" class="status">Checking...</div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 Manual Tests</h2>
+            <button onclick="testSupabaseConnection()">Test Supabase Connection</button>
+            <button onclick="testGetAllData()">Get All User Availability</button>
+            <button onclick="testGetSpecificUser()">Get Molly & Jay's Data</button>
+            <button onclick="testDatabaseStructure()">Check Database Structure</button>
+        </div>
+
+        <div class="section">
+            <h2>📊 Results</h2>
+            <div id="results">
+                <p>Click the buttons above to run tests...</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🛠️ Troubleshooting Guide</h2>
+            <ul>
+                <li><strong>If connection fails:</strong> Check Supabase URL and API key</li>
+                <li><strong>If no data returned:</strong> Verify data exists in Supabase dashboard</li>
+                <li><strong>If wrong user names:</strong> Check user_name column matches exactly</li>
+                <li><strong>If dates are wrong:</strong> Check selected_date column format (YYYY-MM-DD)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Add the Supabase client code from your app
+        const SUPABASE_URL = "https://dckqztwxrdviztneknot.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRja3F6dHd4cmR2aXp0bmVrbm90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNjEwNjksImV4cCI6MjA2MzkzNzA2OX0.aHahdhmVBQhLOVXtmOqM_8O1d7wEeUiX9JpHdKuprYc";
+
+        let supabaseClient = null;
+
+        // Simple Supabase client initialization (you'll need to load the actual library)
+        function initSupabase() {
+            // This is a simplified version - in reality you'd load the supabase library
+            console.log("Initializing Supabase connection...");
+            updateStatus("🔄 Initializing Supabase...");
+        }
+
+        function updateStatus(message) {
+            document.getElementById('status').innerHTML = message;
+        }
+
+        function addResult(title, content, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `section ${type}`;
+            resultDiv.innerHTML = `<h3>${title}</h3><pre>${content}</pre>`;
+            resultsDiv.appendChild(resultDiv);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        async function testSupabaseConnection() {
+            try {
+                updateStatus("🔄 Testing connection...");
+                
+                // Test basic fetch to Supabase
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/user_availability?select=count`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.text();
+                    addResult("✅ Supabase Connection Test", 
+                        `Status: ${response.status} ${response.statusText}\nResponse: ${data}`, 
+                        'success');
+                    updateStatus("✅ Connected to Supabase");
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                addResult("❌ Supabase Connection Failed", 
+                    `Error: ${error.message}`, 
+                    'error');
+                updateStatus("❌ Connection failed");
+            }
+        }
+
+        async function testGetAllData() {
+            try {
+                updateStatus("🔄 Fetching all user availability...");
+                
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/user_availability?select=*&order=user_name,selected_date`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult("📊 All User Availability Data", 
+                        `Total records: ${data.length}\n\n` + JSON.stringify(data, null, 2), 
+                        'success');
+                    
+                    // Group by user
+                    const byUser = data.reduce((acc, row) => {
+                        if (!acc[row.user_name]) acc[row.user_name] = [];
+                        acc[row.user_name].push(row.selected_date);
+                        return acc;
+                    }, {});
+                    
+                    addResult("👥 Data Grouped by User", 
+                        JSON.stringify(byUser, null, 2), 
+                        'success');
+                        
+                    updateStatus(`✅ Found ${data.length} records for ${Object.keys(byUser).length} users`);
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                addResult("❌ Failed to Get All Data", 
+                    `Error: ${error.message}`, 
+                    'error');
+                updateStatus("❌ Failed to fetch data");
+            }
+        }
+
+        async function testGetSpecificUser() {
+            try {
+                updateStatus("🔄 Fetching Molly & Jay's data...");
+                
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/user_availability?user_name=eq.Molly%20%26%20Jay&select=*&order=selected_date`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult("👤 Molly & Jay's Data", 
+                        `Total records: ${data.length}\n\n` + JSON.stringify(data, null, 2), 
+                        'success');
+                    updateStatus(`✅ Found ${data.length} records for Molly & Jay`);
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                addResult("❌ Failed to Get User Data", 
+                    `Error: ${error.message}`, 
+                    'error');
+                updateStatus("❌ Failed to fetch user data");
+            }
+        }
+
+        async function testDatabaseStructure() {
+            try {
+                updateStatus("🔄 Checking database structure...");
+                
+                // Test with a LIMIT to see table structure
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/user_availability?select=*&limit=1`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.length > 0) {
+                        const columns = Object.keys(data[0]);
+                        addResult("🏗️ Database Structure", 
+                            `Table: user_availability\nColumns: ${columns.join(', ')}\n\nSample record:\n` + JSON.stringify(data[0], null, 2), 
+                            'success');
+                    } else {
+                        addResult("⚠️ Database Structure", 
+                            "Table exists but no records found", 
+                            'warning');
+                    }
+                    updateStatus("✅ Structure check complete");
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                addResult("❌ Failed to Check Structure", 
+                    `Error: ${error.message}`, 
+                    'error');
+                updateStatus("❌ Structure check failed");
+            }
+        }
+
+        // Initialize when page loads
+        window.onload = function() {
+            initSupabase();
+            updateStatus("🔧 Ready for testing");
+        };
+    </script>
+</body>
+</html>
