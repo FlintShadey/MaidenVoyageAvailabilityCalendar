@@ -11126,6 +11126,12 @@ class Hn {
     !this.isAvailable() || !t || jn.removeChannel(t);
   }
 }
+// Expose Hn class to global window for debugging and access
+if (typeof window !== 'undefined') {
+  window.Hn = Hn;
+  window.jn = jn;
+  console.log('🔧 Exposed Hn and jn to window for debugging');
+}
 const ws = [
     {
       name: "Flint & Maryam",
@@ -11353,10 +11359,10 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
           try {
             (d.value = !0), (i.value = !1);
             console.log("🔄 Loading data from Supabase...");
-            
+
             const allData = await Hn.getAllUserAvailability();
             console.log("📊 Raw Supabase data:", allData);
-            
+
             // Group data by user
             const userDataMap = {};
             for (const row of allData) {
@@ -11365,20 +11371,22 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
               }
               userDataMap[row.user_name].push(new Date(row.selected_date));
             }
-            
+
             console.log("👥 Grouped user data:", userDataMap);
-            
+
             // Update user arrays with data from Supabase
             for (const user of t.value) {
               if (userDataMap[user.name]) {
                 user.availableDates = userDataMap[user.name];
-                console.log(`✅ Updated ${user.name} with ${user.availableDates.length} dates`);
+                console.log(
+                  `✅ Updated ${user.name} with ${user.availableDates.length} dates`
+                );
               } else {
                 user.availableDates = [];
                 console.log(`⚠️ No data found for ${user.name}`);
               }
             }
-            
+
             (d.value = !0), (i.value = !1), r();
             console.log("✅ Data loading complete");
           } catch (error) {
@@ -33930,20 +33938,18 @@ const v_ = Y(
                     },
                     [
                       !e.hideWeekdays &&
-                        o
-                          .getWeekdays(e.firstDayOfWeek)
-                          .map((b) =>
-                            _(
-                              "div",
-                              {
-                                class: [
-                                  "v-date-picker-month__day",
-                                  "v-date-picker-month__weekday",
-                                ],
-                              },
-                              [b]
-                            )
-                          ),
+                        o.getWeekdays(e.firstDayOfWeek).map((b) =>
+                          _(
+                            "div",
+                            {
+                              class: [
+                                "v-date-picker-month__day",
+                                "v-date-picker-month__weekday",
+                              ],
+                            },
+                            [b]
+                          )
+                        ),
                       i.value.map((b, C) => {
                         var x;
                         const S = {
