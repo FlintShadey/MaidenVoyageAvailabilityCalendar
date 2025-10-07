@@ -11086,25 +11086,51 @@ class Hn {
   static async setUserAvailability(t, n) {
     if (!this.isAvailable()) throw new Error("Database not configured");
     try {
-      const { error: a } = await jn
+      console.log(`🔄 Setting availability for ${t} with ${n ? n.length : 0} dates`);
+      
+      // First, delete all existing records for this user
+      const { error: deleteError } = await jn
         .from("user_availability")
         .delete()
         .eq("user_name", t);
-      if (a) throw a;
-      if (!n || n.length === 0) return [];
-      const r = n.map((s) => ({
-          user_name: t,
-          selected_date: s,
-          updated_at: new Date().toISOString(),
-        })),
-        { data: i, error: l } = await jn
-          .from("user_availability")
-          .insert(r)
-          .select();
-      if (l) throw l;
-      return i;
+      
+      if (deleteError) {
+        console.error(`❌ Delete error for ${t}:`, deleteError);
+        throw deleteError;
+      }
+      
+      console.log(`✅ Deleted existing records for ${t}`);
+      
+      // If no dates provided, we're done (user cleared their selection)
+      if (!n || n.length === 0) {
+        console.log(`✅ No dates to insert for ${t}, operation complete`);
+        return [];
+      }
+      
+      // Insert new records with upsert to handle any remaining duplicates
+      const records = n.map((s) => ({
+        user_name: t,
+        selected_date: s,
+        updated_at: new Date().toISOString(),
+      }));
+      
+      console.log(`🔄 Inserting ${records.length} new records for ${t}`);
+      
+      const { data: insertData, error: insertError } = await jn
+        .from("user_availability")
+        .upsert(records, { onConflict: 'user_name,selected_date' })
+        .select();
+      
+      if (insertError) {
+        console.error(`❌ Insert error for ${t}:`, insertError);
+        throw insertError;
+      }
+      
+      console.log(`✅ Successfully set availability for ${t}:`, insertData);
+      return insertData;
     } catch (a) {
-      throw (console.error(`Error setting availability for ${t}:`, a), a);
+      console.error(`❌ Error setting availability for ${t}:`, a);
+      throw a;
     }
   }
   static subscribeToChanges(t) {
