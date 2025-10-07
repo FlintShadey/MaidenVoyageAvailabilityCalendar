@@ -11539,73 +11539,77 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
               ),
               G = de > -1,
               ce = $(ie);
-            console.log(`🔍 BEFORE toggle: User has ${j.availableDates.length} dates:`, 
-              j.availableDates.map(d => d.toDateString()));
-            console.log(`🎯 Target date: ${ie.toDateString()}, Found at index: ${de}, Will ${G ? 'REMOVE' : 'ADD'}`);
-            
+            console.log(
+              `🔍 BEFORE toggle: User has ${j.availableDates.length} dates:`,
+              j.availableDates.map((d) => d.toDateString())
+            );
+            console.log(
+              `🎯 Target date: ${ie.toDateString()}, Found at index: ${de}, Will ${
+                G ? "REMOVE" : "ADD"
+              }`
+            );
+
             G
               ? (j.availableDates.splice(de, 1),
                 console.log(`🗓️ Removing ${ie.toDateString()} for ${n.value}`))
               : (j.availableDates.push(new Date(ie)),
                 console.log(`🗓️ Adding ${ie.toDateString()} for ${n.value}`));
-                
-            console.log(`🔍 AFTER splice/push, BEFORE I(): User has ${j.availableDates.length} dates:`, 
-              j.availableDates.map(d => d.toDateString()));
-              
+
+            console.log(
+              `🔍 AFTER splice/push, BEFORE I(): User has ${j.availableDates.length} dates:`,
+              j.availableDates.map((d) => d.toDateString())
+            );
+
             j.availableDates = I(j.availableDates);
-            
-            console.log(`🔍 AFTER I() deduplication: User has ${j.availableDates.length} dates:`, 
-              j.availableDates.map(d => d.toDateString()));
-              
+
+            console.log(
+              `🔍 AFTER I() deduplication: User has ${j.availableDates.length} dates:`,
+              j.availableDates.map((d) => d.toDateString())
+            );
+
             r();
 
-            // Immediately sync with database (toggle behavior)
+            // Immediately sync with database (toggle behavior) - FORCE SYNC
+            console.log(`🚨 SYNC CHECK: Hn.isAvailable()=${Hn.isAvailable()}, c.value=${c.value}`);
+            
             if (Hn.isAvailable() && !c.value) {
               console.log(
-                `💾 Immediately syncing ${
-                  G ? "removal" : "addition"
-                } to database for ${n.value}`
+                `💾 FORCE SYNC: ${G ? "REMOVING" : "ADDING"} ${ie.toDateString()} for ${n.value}`
               );
+              
               const updatedDates = j.availableDates
-                .filter(
-                  (date) => date instanceof Date && !isNaN(date.getTime())
-                )
+                .filter((date) => date instanceof Date && !isNaN(date.getTime()))
                 .map((date) => date.toISOString().split("T")[0]);
-                
-              console.log(`📤 Sending to database:`, updatedDates);
+
+              console.log(`📤 FORCE SYNC: Sending ${updatedDates.length} dates to database:`, updatedDates);
 
               try {
-                await Hn.setUserAvailability(n.value, updatedDates);
-                console.log(
-                  `✅ Successfully synced ${G ? "removal" : "addition"} for ${
-                    n.value
-                  }`
-                );
+                // Force the database operation
+                const result = await Hn.setUserAvailability(n.value, updatedDates);
+                console.log(`✅ FORCE SYNC SUCCESS: ${G ? "Removed" : "Added"} ${ie.toDateString()}`, result);
+                
+                // Force reload data to ensure UI is in sync
+                console.log(`🔄 FORCE RELOAD: Refreshing data from database...`);
+                await O(); // This should be the data loading function
+                
               } catch (syncError) {
-                console.error(`❌ Failed to sync to database:`, syncError);
+                console.error(`❌ FORCE SYNC FAILED:`, syncError);
                 // Revert the local change if database sync failed
                 if (G) {
                   j.availableDates.push(new Date(ie));
-                  console.log(
-                    `🔄 Reverted: Re-added ${ie.toDateString()} locally due to sync failure`
-                  );
+                  console.log(`🔄 REVERTED: Re-added ${ie.toDateString()} locally`);
                 } else {
                   const revertIndex = j.availableDates.findIndex(
-                    (date) =>
-                      date instanceof Date && date.getTime() === ie.getTime()
+                    (date) => date instanceof Date && date.getTime() === ie.getTime()
                   );
                   if (revertIndex > -1) {
                     j.availableDates.splice(revertIndex, 1);
-                    console.log(
-                      `🔄 Reverted: Removed ${ie.toDateString()} locally due to sync failure`
-                    );
+                    console.log(`🔄 REVERTED: Removed ${ie.toDateString()} locally`);
                   }
                 }
                 j.availableDates = I(j.availableDates);
                 r();
-                alert(
-                  `Failed to ${G ? "remove" : "add"} date: ${syncError.message}`
-                );
+                alert(`Failed to ${G ? "remove" : "add"} date: ${syncError.message}`);
               }
             } else if (c.value) {
               // Demo mode
