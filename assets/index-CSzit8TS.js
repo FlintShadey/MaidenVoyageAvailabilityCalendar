@@ -1343,7 +1343,7 @@ function iu(e, t, n, a = !0) {
       if (u) {
         for (let d = 0; d < u.length; d++) if (u[d](e, o, c) === !1) return;
       }
-      s = s.parent;
+              de = B.availableDates
     }
     if (i) {
       $a(), gs(i, null, 10, [e, o, c]), Aa();
@@ -1355,19 +1355,16 @@ function iu(e, t, n, a = !0) {
 function qk(e, t, n, a = !0, r = !1) {
   if (r) throw e;
   console.error(e);
-}
-const on = [];
+                  // Return a pure date part object (no JS Date) to eliminate all timezone interpretation.
+                  const parts = PureDate.fromKey(dateString);
+                  return parts ? { year: parts.year, month: parts.month, day: parts.day } : null;
 let ea = -1;
 const Bi = [];
 let tr = null,
   Di = 0;
-const vb = Promise.resolve();
-let So = null;
-function He(e) {
-  const t = So || vb;
-  return e ? t.then(this ? e.bind(this) : e) : t;
-}
-function Xk(e) {
+              // Debug only: log a sample of the first few highlight pure objects to ensure correctness in Safari
+              const sample = de.slice(0, 3);
+              console.log("🧩 Highlight pure-date sample (object form):", sample);
   let t = ea + 1,
     n = on.length;
   for (; t < n; ) {
@@ -1379,7 +1376,7 @@ function Xk(e) {
   return t;
 }
 function vf(e) {
-  if (!(e.flags & 1)) {
+                dates: de.filter(Boolean),
     const t = Gl(e),
       n = on[on.length - 1];
     !n || (!(e.flags & 2) && t >= Gl(n)) ? on.push(e) : on.splice(Xk(t), 0, e),
@@ -11381,7 +11378,7 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
             const day = String(d.getDate()).padStart(2, "0");
             return `${y}-${m}-${day}`;
           },
-            // Validate a date key shape
+          // Validate a date key shape
           isKey(k) {
             return typeof k === "string" && /^\d{4}-\d{2}-\d{2}$/.test(k);
           },
@@ -11398,7 +11395,9 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
           },
           normalize(keys) {
             return Array.from(
-              new Set((Array.isArray(keys) ? keys : []).filter((k) => this.isKey(k)))
+              new Set(
+                (Array.isArray(keys) ? keys : []).filter((k) => this.isKey(k))
+              )
             ).sort();
           },
           compare(a, b) {
@@ -11407,22 +11406,22 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
         };
       // Expose adapter globally for debugging
       if (typeof window !== "undefined") window.PureDate = PureDate;
-        I = (B) =>
-          Array.isArray(B)
-            ? Array.from(
-                new Set(
-                  B.filter((ie) => ie instanceof Date && !isNaN(ie)).map((ie) =>
-                    ie.getTime()
-                  )
+      (I = (B) =>
+        Array.isArray(B)
+          ? Array.from(
+              new Set(
+                B.filter((ie) => ie instanceof Date && !isNaN(ie)).map((ie) =>
+                  ie.getTime()
                 )
-              ).map((ie) => new Date(ie))
-            : [],
-        k = (B, j = 150) => {
+              )
+            ).map((ie) => new Date(ie))
+          : []),
+        (k = (B, j = 150) => {
           let ie;
           return (...de) => {
             clearTimeout(ie), (ie = setTimeout(() => B(...de), j));
           };
-        };
+        });
       let D = !1;
       const O = async () => {
           try {
@@ -11588,12 +11587,17 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
             if (!d.value || u.value || h.value) return;
             const j = t.value.find((P) => P.name === n.value);
             if (!j || l.value || !B || !B.date) return;
+            console.log("🖱️ Day click event raw payload:", B);
             const ie = B.date;
             (h.value = !0),
               Array.isArray(j.availableDates) || (j.availableDates = []);
 
-            // SIMPLE APPROACH: Work with date strings instead of Date objects
-            const targetDateString = PureDate.toKeyFromDate(ie); // Convert clicked date to "YYYY-MM-DD" string (no time semantics)
+            // Derive target date string using the day id if present (already in YYYY-MM-DD) to avoid timezone drift.
+            let targetDateString = (B.id && PureDate.isKey(B.id)) ? B.id : PureDate.toKeyFromDate(ie);
+            if (!targetDateString) {
+              console.warn("⚠️ Could not derive targetDateString from event; aborting click handler.");
+              h.value = !1; return;
+            }
             const de = j.availableDates.findIndex(
                 (dateString) => dateString === targetDateString
               ),
@@ -11639,9 +11643,7 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
 
             if (Hn.isAvailable() && !c.value) {
               console.log(
-                `💾 FORCE SYNC: ${
-                  G ? "REMOVING" : "ADDING"
-                } "${targetDateString}" for ${n.value}`
+                `💾 FORCE SYNC: ${ G ? "REMOVING" : "ADDING" } "${targetDateString}" for ${n.value}`
               );
 
               // SIMPLE: availableDates is already an array of date strings
