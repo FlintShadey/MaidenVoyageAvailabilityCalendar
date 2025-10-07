@@ -11400,43 +11400,17 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
             const allData = await Hn.getAllUserAvailability();
             console.log("📊 Raw Supabase data:", allData);
 
-            // Group data by user
+            // Group data by user - SIMPLE APPROACH: Keep as date strings
             const userDataMap = {};
             for (const row of allData) {
               if (!userDataMap[row.user_name]) {
                 userDataMap[row.user_name] = [];
               }
-              // Fix timezone issue: Create date in local timezone instead of UTC
-              // row.selected_date is "YYYY-MM-DD", we need to parse it as local date
-              const [year, month, day] = row.selected_date
-                .split("-")
-                .map(Number);
-
-              // Safari on iOS has stricter date handling, use multiple fallback methods
-              let localDate;
-              const isSafari = S.value === "Safari";
-
-              if (isSafari) {
-                // Safari-specific: Use explicit local timezone construction
-                console.log(
-                  `🍎 Safari detected: Using Safari-specific date parsing for "${row.selected_date}"`
-                );
-                localDate = new Date();
-                localDate.setFullYear(year);
-                localDate.setMonth(month - 1); // month is 0-indexed
-                localDate.setDate(day);
-                localDate.setHours(12, 0, 0, 0); // Set to noon to avoid timezone edge cases
-              } else {
-                // Standard method for other browsers
-                localDate = new Date(year, month - 1, day);
-              }
-
+              // SIMPLE: No timezone conversion - just store the date string directly
               console.log(
-                `🕐 Date conversion: "${
-                  row.selected_date
-                }" → ${localDate.toDateString()} (Safari: ${isSafari})`
+                `📅 Loading date string: "${row.selected_date}" for ${row.user_name}`
               );
-              userDataMap[row.user_name].push(localDate);
+              userDataMap[row.user_name].push(row.selected_date);
             }
 
             console.log("👥 Grouped user data:", userDataMap);
@@ -11494,11 +11468,22 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
               return [];
             const j = Kt.calendarConfig.minDate.getFullYear(),
               ie = Kt.calendarConfig.maxDate.getFullYear(),
-              de = B.availableDates.filter((ce) => {
-                if (!(ce instanceof Date) || isNaN(ce.getTime())) return !1;
-                const P = ce.getFullYear();
-                return !(P < j || P > ie);
-              });
+              de = B.availableDates
+                .filter((dateString) => {
+                  // SIMPLE: dateString is "YYYY-MM-DD", parse year directly
+                  if (
+                    typeof dateString !== "string" ||
+                    dateString.length !== 10
+                  )
+                    return false;
+                  const year = parseInt(dateString.substring(0, 4), 10);
+                  return year >= j && year <= ie;
+                })
+                .map((dateString) => {
+                  // Convert date string to Date object for calendar highlighting
+                  const [year, month, day] = dateString.split("-").map(Number);
+                  return new Date(year, month - 1, day);
+                });
             if (de.length === 0) return [];
             const G = B.color || "blue";
             return [
@@ -11564,37 +11549,41 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
             const ie = B.date;
             (h.value = !0),
               Array.isArray(j.availableDates) || (j.availableDates = []);
+
+            // SIMPLE APPROACH: Work with date strings instead of Date objects
+            const targetDateString = $(ie); // Convert clicked date to "YYYY-MM-DD" string
             const de = j.availableDates.findIndex(
-                (P) => P instanceof Date && P.getTime() === ie.getTime()
+                (dateString) => dateString === targetDateString
               ),
-              G = de > -1,
-              ce = $(ie);
+              G = de > -1;
+
             console.log(
-              `🔍 BEFORE toggle: User has ${j.availableDates.length} dates:`,
-              j.availableDates.map((d) => d.toDateString())
+              `🔍 BEFORE toggle: User has ${j.availableDates.length} date strings:`,
+              j.availableDates
             );
             console.log(
-              `🎯 Target date: ${ie.toDateString()}, Found at index: ${de}, Will ${
+              `🎯 Target date string: "${targetDateString}", Found at index: ${de}, Will ${
                 G ? "REMOVE" : "ADD"
               }`
             );
 
             G
               ? (j.availableDates.splice(de, 1),
-                console.log(`🗓️ Removing ${ie.toDateString()} for ${n.value}`))
-              : (j.availableDates.push(new Date(ie)),
-                console.log(`🗓️ Adding ${ie.toDateString()} for ${n.value}`));
+                console.log(`🗓️ Removing "${targetDateString}" for ${n.value}`))
+              : (j.availableDates.push(targetDateString),
+                console.log(`🗓️ Adding "${targetDateString}" for ${n.value}`));
 
             console.log(
-              `🔍 AFTER splice/push, BEFORE I(): User has ${j.availableDates.length} dates:`,
-              j.availableDates.map((d) => d.toDateString())
+              `🔍 AFTER splice/push: User has ${j.availableDates.length} date strings:`,
+              j.availableDates
             );
 
-            j.availableDates = I(j.availableDates);
+            // Remove duplicates from string array (much simpler than Date objects)
+            j.availableDates = [...new Set(j.availableDates)].sort();
 
             console.log(
-              `🔍 AFTER I() deduplication: User has ${j.availableDates.length} dates:`,
-              j.availableDates.map((d) => d.toDateString())
+              `🔍 AFTER deduplication: User has ${j.availableDates.length} unique date strings:`,
+              j.availableDates
             );
 
             r();
@@ -11610,17 +11599,17 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
               console.log(
                 `💾 FORCE SYNC: ${
                   G ? "REMOVING" : "ADDING"
-                } ${ie.toDateString()} for ${n.value}`
+                } "${targetDateString}" for ${n.value}`
               );
 
-              const updatedDates = j.availableDates
-                .filter(
-                  (date) => date instanceof Date && !isNaN(date.getTime())
-                )
-                .map((date) => $(date)); // Use Safari-safe date conversion
+              // SIMPLE: availableDates is already an array of date strings
+              const updatedDates = j.availableDates.filter(
+                (dateString) =>
+                  typeof dateString === "string" && dateString.length === 10
+              );
 
               console.log(
-                `📤 FORCE SYNC: Sending ${updatedDates.length} dates to database:`,
+                `📤 FORCE SYNC: Sending ${updatedDates.length} date strings to database:`,
                 updatedDates
               );
 
@@ -11646,23 +11635,25 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
                 console.error(`❌ FORCE SYNC FAILED:`, syncError);
                 // Revert the local change if database sync failed
                 if (G) {
-                  j.availableDates.push(new Date(ie));
+                  // Was a removal that failed, so re-add the date string
+                  j.availableDates.push(targetDateString);
                   console.log(
-                    `🔄 REVERTED: Re-added ${ie.toDateString()} locally`
+                    `🔄 REVERTED: Re-added "${targetDateString}" locally`
                   );
                 } else {
+                  // Was an addition that failed, so remove the date string
                   const revertIndex = j.availableDates.findIndex(
-                    (date) =>
-                      date instanceof Date && date.getTime() === ie.getTime()
+                    (dateString) => dateString === targetDateString
                   );
                   if (revertIndex > -1) {
                     j.availableDates.splice(revertIndex, 1);
                     console.log(
-                      `🔄 REVERTED: Removed ${ie.toDateString()} locally`
+                      `🔄 REVERTED: Removed "${targetDateString}" locally`
                     );
                   }
                 }
-                j.availableDates = I(j.availableDates);
+                // Remove duplicates and sort
+                j.availableDates = [...new Set(j.availableDates)].sort();
                 r();
                 alert(
                   `Failed to ${G ? "remove" : "add"} date: ${syncError.message}`
@@ -11904,7 +11895,7 @@ const eD = { key: 1, class: "text-center text-medium-emphasis" },
           console.log(
             "✅ Direct computation test:",
             ie.map((de) => ({
-              date: de.date.toISOString().split("T")[0],
+              date: toDateKey(de.date),
               users: de.users.map((G) => G.name),
             }))
           ),
